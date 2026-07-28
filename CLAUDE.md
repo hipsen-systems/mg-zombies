@@ -25,7 +25,11 @@ When making gameplay or architecture decisions, favor what serves this loop (her
 
 Two developers collaborate via feature branches and pull requests.
 
-- Never commit directly to `main`. All work happens on branches and lands through PRs.
+- **Starting any new piece of work:** first sync with the remote (`git fetch origin`), then create a fresh branch from `origin/main` — e.g. `git switch -c feature/skill-tree origin/main`. Never start new work from a stale local `main` or from another feature branch.
+- Branch naming: `feature/<topic>`, `fix/<topic>`, or `test/<topic>`.
+- **Resuming existing work:** switch back to that feature branch; don't merge `main` into it unless the PR is blocked by the "branch up to date" requirement or a conflict.
+- Never commit directly to `main`. All work happens on branches and lands through PRs (branch protection rejects direct pushes anyway).
+- One topic per branch/PR — keep PRs small and reviewable; flag unrelated changes for a separate branch.
 - Every PR is reviewed by the *other* developer's Claude before merging (cross-review). When the user asks you to review their partner's PR, do a genuine critical review: check it against this file's conventions, the game design goals, and the per-folder context docs — don't rubber-stamp.
 - When creating a PR, write a body that gives the reviewer enough context to review without access to this conversation.
 
