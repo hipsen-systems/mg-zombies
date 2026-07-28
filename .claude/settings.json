@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Knowledge base: before substantive work on this repo, load existing context from the mg-zombies Flowdex project via the nexus-knowledge-base skill - get_project_structure, then read_index the pages relevant to the task. Reading one page is not enough. A Stop hook blocks the session from ending if project code or folder docs changed but nothing was written back with write_index / append_changelog. If you have not connected the Flowdex MCP server, see Knowledge base in the root CLAUDE.md; the hooks no-op until you do.\"}}'",
+            "shell": "bash",
+            "timeout": 10,
+            "suppressOutput": true
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -9,6 +22,13 @@
             "shell": "bash",
             "timeout": 30,
             "statusMessage": "Checking per-folder docs..."
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-flowdex.sh",
+            "shell": "bash",
+            "timeout": 30,
+            "statusMessage": "Checking Flowdex write-back..."
           }
         ]
       }

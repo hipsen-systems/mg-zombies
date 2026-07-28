@@ -10,3 +10,8 @@
 
 # Per-developer Claude Code context (machine-specific paths etc.)
 CLAUDE.local.md
+
+# Per-developer Claude Code settings (local permissions, machine-specific hooks).
+# Shared hooks belong in .claude/settings.json — both files' hooks run, so a
+# hook duplicated here fires twice.
+.claude/settings.local.json
