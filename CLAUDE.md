@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A Godot 4.7 game project ("mg-zombies"). Currently a bare project scaffold: `project.godot` exists but no scenes, scripts, or main scene have been created yet.
+A Godot 4.7 game project ("mg-zombies"). Gameplay work has not started yet: the only scene is `scenes/main.tscn`, a placeholder main scene whose job is to prove the build pipeline produces a running build. There are no scripts yet.
 
 Engine configuration (from `project.godot`):
 - Renderer: Forward Plus, Direct3D 12 driver on Windows
@@ -42,13 +42,13 @@ Rules:
 
 ## Running Godot
 
-The project uses Godot 4.7.1. Godot is not on PATH; the binary location is machine-specific. On Max's machine both binaries live in a folder (yes, the folder itself is named `.exe`):
+The project uses Godot 4.7.1. Godot is not on PATH and the binary location is machine-specific, so it is deliberately not recorded here. Each developer keeps their local path in `CLAUDE.local.md` in the repo root (gitignored; Claude Code auto-loads it alongside this file). If that file doesn't exist yet, locate the install (try `Downloads` for `Godot_v4.7.1*`) and offer to create it with the path you found.
 
-```
-C:\Users\bruger\Downloads\Godot_v4.7.1-stable_win64.exe\Godot_v4.7.1-stable_win64_console.exe
-```
+Windows gotchas when locating the binary:
+- The extracted download may be a *folder* that is itself named `...win64.exe`, with the actual executables inside it.
+- If a `Godot_v*_console.exe` wrapper exists, prefer it for terminal/automation work — its stdout is reliably capturable, unlike the GUI binary's.
 
-Prefer the `_console.exe` wrapper for terminal/automation work — its stdout is reliably capturable. Common invocations (from the repo root), abbreviating the binary as `$GODOT`:
+Common invocations (from the repo root), abbreviating the binary as `$GODOT`:
 
 ```bash
 # Open the project in the editor
@@ -88,7 +88,7 @@ GitHub Issues is the project backlog. Claude sessions should actively use it:
 
 ## GitHub API access
 
-The `gh` CLI is not installed on team machines; `python` and `jq` may also be missing. To call the GitHub API (issues, PRs, checks), reuse git's stored credential — never print the token itself:
+Tooling differs per machine: prefer the `gh` CLI where it is installed (check with `gh --version`; record its presence or absence in your `CLAUDE.local.md`). Where `gh` is missing (`python` and `jq` may be too), call the GitHub API (issues, PRs, checks) by reusing git's stored credential — never print the token itself:
 
 ```bash
 cred=$(printf 'protocol=https\nhost=github.com\n' | git credential fill 2>/dev/null)
