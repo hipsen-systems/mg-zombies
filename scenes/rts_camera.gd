@@ -1,3 +1,4 @@
+class_name RTSCamera
 extends Camera3D
 ## Fixed-angle RTS-style follow camera (issue #5).
 ##
@@ -14,6 +15,19 @@ var _offset := Vector3.ZERO
 
 func _ready() -> void:
 	_offset = global_position - target.global_position
+	look_at(target.global_position)
+
+
+## Jump straight to the target instead of gliding to it. Call this after
+## teleporting the target — the hero is spawned at the map's start cell in
+## main.gd, which happens after this _ready(), and without a snap the camera
+## would visibly sail across the map on the first frames.
+##
+## Re-aims as well as moves: _ready() aimed at wherever the target was sitting
+## in the .tscn, which is the wrong point once it has been teleported. The
+## offset is unchanged, so the fixed viewing angle is preserved.
+func snap_to_target() -> void:
+	global_position = target.global_position + _offset
 	look_at(target.global_position)
 
 
