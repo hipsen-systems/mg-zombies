@@ -1,0 +1,97 @@
+# scenes/enemies/
+
+Hostile actors. Currently just the basic zombie (issue #7).
+
+- `zombie.tscn` — `CharacterBody3D`, collision layer 4 (enemies), mask 1|2|3.
+  Placeholder green capsule + facing "nose" under a `Visual` node, a
+  `CollisionShape3D`, a `NavigationAgent3D`, and a `Health` child (30 HP). In
+  the `enemies` group.
+- `zombie.gd` (`class_name Zombie`) — roam / notice / chase / melee AI.
+
+## The four radii
+
+They are deliberately four different things, and reviewers should not collapse
+them:
+
+| Export | Default | Meaning |
+|--------|---------|---------|
+| `roam_radius` | 6 | The patch it wanders while idle, centred on **home** — where it spawned. |
+| `detection_radius` | 12 | How far it can *notice* the hero. **Requires line of sight.** |
+| `aggro_radius` | 18 | How far it will *keep* chasing once committed. |
+| `leash_radius` | 26 | Hard tether to home, whatever the hero does. |
+
+`aggro_radius > detection_radius` on purpose — that gap is hysteresis. With one
+shared radius the zombie flickers in and out of aggro whenever the hero stands
+near the boundary, and you could shake it by stepping back one metre.
+
+`leash_radius` is home-relative where `aggro_radius` is hero-relative, so they
+are not redundant: without the leash the hero could tow a zombie across the
+whole maze by staying just inside aggro range, and encounters would drift away
+from where the map author placed them.
+
+## States
+
+`ROAM → ALERT → CHASE ⇄ ATTACK`, plus `RETURN` and `DEAD`.
+
+- **ROAM** — picks a random point in the home disc (`sqrt(randf())` so
+  destinations spread evenly instead of bunching at the centre), walks there at
+  `roam_speed`, pauses `roam_pause_min..max`, repeats. The only state that
+  acquires a target.
+- **ALERT** — noticed the hero: stops and turns to face him for `alert_delay`
+  (0.5 s) before charging. A readable beat, not an instant snap into a sprint —
+  it matters in a top-down view where the player reads the whole screen. Drops
+  back to ROAM if the hero leaves `detection_radius` during the beat.
+- **CHASE** — repaths to the hero on every sense tick.
+- **ATTACK** — inside `attack_range` (2.0): stands, faces, and calls
+  `hero.take_damage(attack_damage)` every `attack_cooldown`. There is no
+  wind-up; the swing lands the instant the cooldown expires. Add a telegraph
+  when there are attack animations to hang it on.
+- **RETURN** — leashed or lost him. **Ignores the hero until home is reached**,
+  so he cannot chain-pull a zombie across the map by re-entering its detection
+  radius at the edge of the leash.
+- **DEAD** — collision layer and mask both zeroed at once (a corpse the hero
+  cannot walk past would plug a one-cell corridor for the whole fade), emits
+  `died(zombie)`, then a tween falls it over, lingers, sinks it and frees it.
+
+`take_damage()` aggroes regardless of range, sight or leash — otherwise the
+hero could whittle a zombie down from outside its detection radius.
+
+## Gotchas
+
+- **Sensing is throttled** to one tick per `SENSE_INTERVAL` (0.2 s), and the
+  first tick is randomly offset per zombie in `_ready()`. A shambling zombie
+  does not need 60 Hz reflexes, the cost stays flat as the maze fills up, and
+  the offset stops a room full of them moving in lockstep. Anything that needs
+  per-frame precision (the attack cooldown, gravity, movement) is in
+  `_physics_process`, not `_think()`.
+- **`_ready()` awaits one `physics_frame` before its first path request.**
+  `NavigationServer3D` syncs its maps at the end of a physics frame and
+  `scenes/main.gd` bakes the navmesh in its own `_ready()`; querying before that
+  sync returns the map origin, which would send every zombie walking to the
+  middle of the maze. Don't remove the await.
+- **Line of sight is a chest-to-chest ray against layer 2 only** (walls). Drop
+  it and zombies detect the hero through solid rock, then appear round a corner
+  for no visible reason.
+- **Wander targets are clamped with `NavigationServer3D.map_get_closest_point`**,
+  the same way `Hero.command_move_to` clamps a click — a random point that lands
+  inside rock becomes the nearest reachable spot instead of a path request that
+  resolves to nothing.
+- **Zombies don't collide with each other** (mask omits layer 4). They *are*
+  blocked by the world and by the hero, but the hero (mask 1|2) is never blocked
+  by them. Zombies that collide jam solid in a one-cell corridor, and a hero who
+  can be body-blocked wedges exactly the way `scenes/map/CLAUDE.md` describes.
+  The trade is that a pack overlaps visually; revisit with agent avoidance when
+  it starts to look wrong.
+
+## Dependencies / signals
+
+- Finds the hero via `get_tree().get_first_node_in_group("hero")` — no scene
+  path, so a zombie works in any scene that has a hero and a baked navmesh.
+- Calls `Hero.take_damage()`; reads `Hero.is_dead()` to stop hitting a corpse.
+- Emits `died(zombie)`. Nothing consumes it yet — it is the hook for XP
+  (issue #8).
+- Spawned by `scenes/main.gd` at the `Z` cells of `scenes/map/maze.gd`; the
+  spawner sets `position` *before* `add_child`, because `_ready()` captures
+  `global_position` as home.
+- Still a placeholder capsule. The Quaternius zombie models in
+  `assets/characters/zombies/` are imported but unused, matching the hero.

@@ -9,8 +9,15 @@ extends CharacterBody3D
 ##
 ## Every move command supersedes the one before it immediately — see
 ## command_move_to().
+##
+## Hit points live in the [Health] child (issue #7); the hero is in the "hero"
+## group so enemies can find him without a scene path.
 
 signal move_ordered(world_point: Vector3)
+
+## Emitted once when the hero's health hits zero. scenes/main.gd listens and
+## restarts the run.
+signal died
 
 const SPEED := 6.0
 const TURN_SPEED := 12.0
@@ -21,11 +28,32 @@ const GROUND_MASK := 1
 const RAY_LENGTH := 1000.0
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+var _dead := false
 
+@onready var health: Health = $Health
 @onready var _nav_agent: NavigationAgent3D = $NavigationAgent3D
 
 
+func _ready() -> void:
+	health.died.connect(_on_health_died)
+
+
+func is_dead() -> bool:
+	return _dead
+
+
+## Damage entry point — attackers call this rather than reaching into the
+## Health child, so the hero stays free to react to a hit later (armour,
+## interrupted casts, hit reactions).
+func take_damage(amount: float) -> void:
+	if _dead:
+		return
+	health.take_damage(amount)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if _dead:
+		return
 	if not event.is_action_pressed("move_command"):
 		return
 	# Use the position carried by the click itself rather than the live mouse
@@ -87,7 +115,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y = 0.0
 
-	if _nav_agent.is_navigation_finished():
+	if _dead or _nav_agent.is_navigation_finished():
 		velocity.x = 0.0
 		velocity.z = 0.0
 		move_and_slide()
@@ -106,3 +134,9 @@ func _physics_process(delta: float) -> void:
 	if direction.length_squared() > 0.0:
 		var target_yaw := atan2(-direction.x, -direction.z)
 		rotation.y = lerp_angle(rotation.y, target_yaw, TURN_SPEED * delta)
+
+
+func _on_health_died() -> void:
+	_dead = true
+	velocity = Vector3.ZERO
+	died.emit()
