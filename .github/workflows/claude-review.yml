@@ -1,0 +1,49 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  claude-review:
+    # Skip drafts; review runs when the PR is opened or updated
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            You are reviewing your teammate's pull request for a two-person
+            Godot game project. Read the root CLAUDE.md first — it defines the
+            game design goals, team workflow, and documentation rules.
+
+            Review the PR diff critically, do not rubber-stamp:
+            - Correctness of GDScript and scene changes; bugs, broken signals,
+              missing node paths.
+            - Consistency with the game design section of CLAUDE.md (top-down
+              hero gameplay, skill-tree extensibility, readable visuals).
+            - Per-folder CLAUDE.md docs: every folder with changed code must
+              have one, and its content must actually match the code in this
+              PR — flag stale or vague docs as review findings.
+            - Scope: flag unrelated drive-by changes.
+
+            Post your findings as a single review comment on the PR using
+            `gh pr comment`. Lead with a short verdict, then concrete findings
+            with file references. If the PR looks good, say so and why.
+          claude_args: '--allowed-tools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"'

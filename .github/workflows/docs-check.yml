@@ -1,0 +1,19 @@
+name: Folder docs check
+
+on:
+  pull_request:
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Check per-folder CLAUDE.md docs
+        run: bash .claude/hooks/check-folder-docs.sh --diff "origin/${{ github.base_ref }}...HEAD"
