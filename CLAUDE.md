@@ -100,6 +100,15 @@ token=$(printf '%s' "$cred" | sed -n 's/^password=//p')
 curl -s -H "Authorization: token $token" https://api.github.com/repos/hipsen-systems/mg-zombies/issues
 ```
 
+## Assets
+
+Third-party assets live in `assets/` and are governed by an anti-bloat policy (this repo is public and every asset ships in the web deploy):
+
+- **Only CC0** (or another explicitly redistribution-safe license). No "free for personal use" assets.
+- **Commit only files a scene/script actually uses** — never whole asset packs, and never `.zip` archives (gitignored). Trim first, commit second.
+- **Every asset addition updates `assets/LICENSES.md`** (source, license, date, committed subset) in the same commit. Re-download instructions live there too.
+- Reviewers: an asset PR that violates any of these is a valid blocking finding.
+
 ## Conventions
 
 - Git normalizes all text files to LF line endings (`.gitattributes`); files are UTF-8 (`.editorconfig`).

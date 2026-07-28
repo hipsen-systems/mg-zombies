@@ -5,5 +5,8 @@
 # Export output
 /build/
 
+# Asset pack archives — commit extracted, trimmed files only (see CLAUDE.md > Assets)
+*.zip
+
 # Per-developer Claude Code context (machine-specific paths etc.)
 CLAUDE.local.md
