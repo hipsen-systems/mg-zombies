@@ -4,3 +4,6 @@
 
 # Export output
 /build/
+
+# Per-developer Claude Code context (machine-specific paths etc.)
+CLAUDE.local.md
