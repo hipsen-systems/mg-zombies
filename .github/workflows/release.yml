@@ -1,0 +1,41 @@
+name: Release build
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.7.1
+
+jobs:
+  windows-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Godot and export templates
+        run: |
+          curl -sL -o godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot-bin
+          curl -sL -o templates.tpz "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Export Windows build
+        run: |
+          mkdir -p build/windows
+          ./godot-bin --headless --path . --import
+          ./godot-bin --headless --path . --export-release "Windows Desktop" build/windows/mg-zombies.exe
+          cd build/windows && zip -r "../../mg-zombies-windows-${{ github.ref_name }}.zip" .
+
+      - name: Create GitHub release with build attached
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mg-zombies-windows-*.zip
+          generate_release_notes: true
