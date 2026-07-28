@@ -49,8 +49,11 @@ const EDGES := [
 ## The map. North is row 0. Must be rectangular; exactly one S and one B.
 ##
 ## Corridors are one cell (4 units) wide, which leaves ~3 units of clear space
-## once the walls straddle the cell edges — wide enough for the hero (0.4
-## radius) and a zombie to meet, tight enough to make chokepoints matter.
+## once the walls straddle the cell edges. Agents travel them single-file: the
+## navmesh bakes at agent_radius 1.0 (see the gotcha in CLAUDE.md), so the
+## walkable ribbon is only ~1 unit wide and two units cannot pass each other.
+## Chokepoints are therefore the default, not the exception — encounter design
+## should assume a queue, not a brawl.
 @export var layout: PackedStringArray = PackedStringArray([
 	"###############",
 	"#####.....#####",

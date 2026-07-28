@@ -4,10 +4,11 @@ The player-controlled hero (issue #5: movement; combat comes in issue #11).
 
 - `hero.tscn` — `CharacterBody3D` (collision layer 3, mask 1|2) with a
   placeholder capsule + a small "nose" box marking the facing direction, a
-  `CollisionShape3D`, and a `NavigationAgent3D`. The visual gets replaced by
-  the KayKit Knight once the asset PR lands; the node forward direction is -Z
-  (Godot convention) so a rigged model drops in without a compensating
-  rotation.
+  `CollisionShape3D`, and a `NavigationAgent3D`. The KayKit Knight is already
+  in the repo (`assets/characters/hero/Knight.glb`, imported in issue #12) —
+  swapping the capsule for it is outstanding work, not a pending dependency.
+  The node forward direction is -Z (Godot convention) so the rigged model drops
+  in without a compensating rotation.
 - `hero.gd` (`class_name Hero`) — click-to-move controller.
   - **Input decision (documented per issue #5):** *right*-click issues the
     move command (RTS convention); left-click is reserved for
