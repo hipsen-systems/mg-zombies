@@ -14,3 +14,5 @@ Third-party CC0 3D assets, trimmed to what the game actually uses. Provenance an
 - The dungeon pieces are text `.gltf` (JSON) referencing external `.bin` buffers — copying a piece means copying both files.
 - Zombies are FBX (Quaternius publishes no glTF for this pack); Godot 4.7 imports FBX natively via ufbx. If materials come in white, the FBX embedded material needs re-linking in the import dock — flag it, don't silently reimport to other formats.
 - Need more dungeon pieces or another Adventurers character? Re-download the packs (URLs in `LICENSES.md`) and copy only the new files you use, updating `LICENSES.md`.
+
+<!-- verified-against: 4a272d6 -->
