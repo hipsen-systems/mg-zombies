@@ -111,6 +111,13 @@ The team keeps a shared, AI-readable wiki in Flowdex, project slug **`mg-zombies
 
 **Connecting (once per developer).** Flowdex reaches Claude Code as an MCP connector on your own Claude account, authenticated with your personal `nx_live_` token. Add it in your Claude account's connector settings. The token is a secret: it belongs in that connector config only — never in this repo, a PR, or an issue. Ask the other developer for a Flowdex org invite if you don't have an account yet. Until you connect it, the hooks below no-op and everything else here still works.
 
+**What belongs here, and what belongs in a `CLAUDE.md`.** The two must never describe the same thing. A fact written in two places gets corrected in one, and the survivor is a confident lie — this is the single largest source of doc rot, and it has already happened here. The test is ownership:
+
+- **Exactly one folder owns a fact → that folder's `CLAUDE.md` owns it, and Flowdex only links to it.** Tuning values, APIs, signal names, file-level gotchas. A Flowdex page about a single folder is therefore a *stub*: what the thing is, what constraint it imposes on the rest of the game, which folder holds the detail, and its links. Nothing more.
+- **No single folder owns it → Flowdex owns it.** Cross-cutting contracts (physics layers, navigation settings, scene startup order), design intent, and project state. These have no folder to live in, which is exactly why the wiki exists.
+
+Concretely: **a Flowdex page may name folders, never files, symbols, or tuning values.** `scenes/map/` is fine; `maze.gd`, `command_move_to()`, and `agent_radius = 1.0` are not — those belong in a folder doc. Issue and PR numbers are project state, not code facts, and stay welcome. The rule scales in the right direction: as the codebase grows, more concerns become cross-cutting, so the wiki grows where it is uniquely useful instead of mirroring the source tree.
+
 **Using it — the two halves.**
 - **Read before you act.** At the start of substantive work (gameplay features, architecture decisions, asset or infra changes), invoke the `nexus-knowledge-base` skill: `get_project_structure`, then `read_index` the pages relevant to the task. Reading one page is not enough. Skip it for trivial one-liners.
 - **Write durable knowledge back.** Save what outlives the chat as a small single-topic page under the right category folder, and record the change with `append_changelog`. Loading context and writing nothing back is the failure this system exists to prevent.
