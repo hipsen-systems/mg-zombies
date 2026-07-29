@@ -51,9 +51,10 @@ const EDGES := [
 ## Corridors are one cell (4 units) wide, which leaves ~3 units of clear space
 ## once the walls straddle the cell edges. Agents travel them single-file: the
 ## navmesh bakes at agent_radius 1.0 (see the gotcha in CLAUDE.md), so the
-## walkable ribbon is only ~1 unit wide and two units cannot pass each other.
-## Chokepoints are therefore the default, not the exception — encounter design
-## should assume a queue, not a brawl.
+## walkable ribbon is only ~1 unit wide. Two 0.4-radius agents fit across that
+## with ~0.2 to spare, but nothing steers them apart — avoidance_enabled is off
+## and no code sets it — so in practice they queue. Chokepoints are the default,
+## not the exception; encounter design should assume a queue, not a brawl.
 @export var layout: PackedStringArray = PackedStringArray([
 	"###############",
 	"#####.....#####",
