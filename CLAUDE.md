@@ -31,6 +31,11 @@ Two developers collaborate via feature branches and pull requests.
 - Never commit directly to `main`. All work happens on branches and lands through PRs (branch protection rejects direct pushes anyway).
 - One topic per branch/PR — keep PRs small and reviewable; flag unrelated changes for a separate branch.
 - Every PR is reviewed by the *other* developer's Claude before merging (cross-review). When the user asks you to review their partner's PR, do a genuine critical review: check it against this file's conventions, the game design goals, and the per-folder context docs — don't rubber-stamp.
+- **Solo review, when the other developer is away.** `main` requires zero approving reviews, so the author can merge their own PR. This is deliberate: GitHub blocks authors from approving their own PRs, so an approval gate would deadlock a one-person week. The *review* is not waived, it moves to the author's side:
+  - The `claude-review` workflow runs on every PR and is a required check. Read its comment and address the findings before merging.
+  - Have your own Claude review the diff too, held to the same bar as a cross-review. An author-side reviewer that softens its findings makes the whole gate worthless.
+  - Everything else still applies: one topic per PR, no direct commits to `main`, all checks green, threads resolved. Merging your own PR is the exception — when both developers are around, wait for the cross-review.
+  - Restoring the two-person gate: `gh api --method PATCH repos/hipsen-systems/mg-zombies/branches/main/protection/required_pull_request_reviews -F required_approving_review_count=1`
 - When creating a PR, write a body that gives the reviewer enough context to review without access to this conversation.
 
 ## Per-folder context docs
