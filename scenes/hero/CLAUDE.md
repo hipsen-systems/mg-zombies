@@ -48,3 +48,5 @@ The player-controlled hero (issue #5: movement; combat comes in issue #11).
 - Emits `move_ordered(world_point: Vector3)`; nothing consumes it yet (it
   exists for movement/attack-cancel wiring in issue #11). No signals consumed
   — HP/XP signals arrive with issues #7, #8.
+
+<!-- verified-against: 4a45066 -->

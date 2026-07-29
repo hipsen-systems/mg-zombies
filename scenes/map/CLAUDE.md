@@ -86,3 +86,5 @@ ever gets collided with.
   reads `start_position()` to place the hero and then bakes the navmesh. The
   ordering is load-bearing — `Maze._ready()` runs before `Main._ready()`
   because Godot readies children first, so the geometry exists before the bake.
+
+<!-- verified-against: 4a272d6 -->
