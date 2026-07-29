@@ -142,7 +142,10 @@ unaccompanied_commits() {
 check_verification() {
   folder_docs | while IFS= read -r doc; do
     d=$(dirname "$doc")
-    stamp=$(sed -n 's/.*verified-against:[[:space:]]*\([0-9a-fA-F]\{7,40\}\).*/\1/p' "$doc" | head -1)
+    # Last match, not first: the stamp is the file's trailing marker, and a doc
+    # may legitimately discuss the convention above it — .claude/hooks/CLAUDE.md
+    # does. Same class of self-reference trap the Flowdex hook hit twice.
+    stamp=$(sed -n 's/.*verified-against:[[:space:]]*\([0-9a-fA-F]\{7,40\}\).*/\1/p' "$doc" | tail -1)
 
     if [ -z "$stamp" ]; then
       echo "NOSTAMP     $doc"
