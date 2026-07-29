@@ -52,9 +52,12 @@ fi
 #
 # (1) The session touched project code or docs. Scratchpad edits, questions and
 #     read-only sessions should never be nagged.
+#     LICENSES.md counts alongside CLAUDE.md: an asset addition may touch
+#     nothing else, and the asset policy is exactly the kind of decision the
+#     wiki is supposed to remember.
 touched_code=0
 if grep -E '"name": *"(Edit|Write|NotebookEdit)"' "$transcript" 2>/dev/null \
-   | grep -qE '\.(gd|gdshader|tscn|godot|cfg|yml)"|CLAUDE\.md"'; then
+   | grep -qE '\.(gd|gdshader|tscn|godot|cfg|yml)"|(CLAUDE|LICENSES)\.md"'; then
   touched_code=1
 fi
 
@@ -75,6 +78,16 @@ fi
 # mention. The tool names also appear in the session's tool listing, so a looser
 # pattern is satisfied by merely having Flowdex connected — which is what the
 # availability probe above deliberately uses it for.
+#
+# The distinction rests on the JSON key, so be careful changing it. A real call
+# is recorded as "name":"<tool>"; every other appearance of a tool name in a
+# transcript uses a different key or no key at all — a ToolSearch result stores
+# it as "tool_name":"<tool>" and as bare comma-separated names. Requiring a
+# quote immediately before `name` is what separates the two. Verified against
+# 15 real session transcripts: this pattern's hit count equalled the number of
+# genuine calls in every one, including a session where these tools' full
+# schemas were loaded via ToolSearch. If Claude Code ever renames that key to
+# `name`, enforcement dies silently — that is the thing to re-test.
 if grep -qE "\"name\"[[:space:]]*:[[:space:]]*\"${mcp_prefix}${writeback_tools}\"" "$transcript" 2>/dev/null; then
   exit 0
 fi
