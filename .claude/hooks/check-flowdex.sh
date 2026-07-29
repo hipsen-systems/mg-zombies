@@ -65,8 +65,16 @@ fi
 #     `main` without this session editing a single file, which is exactly how
 #     the wiki drifted behind the repo before. Matches the gh CLI and the raw
 #     API call alike.
+#
+#     Assembled at runtime for the same reason as the tool names above, and it
+#     is not a hypothetical here: written out whole, the command string sits in
+#     this file, so any session that *read* this file — a review, a debug, an
+#     edit to this very hook — put it in its own transcript and got accused of
+#     merging a PR it never touched. Caught in cross-review of PR #23, after
+#     the identical defence had already been applied to the tool names.
+merge_verb='merge'
 merged_pr=0
-if grep -qE 'gh pr merge|/pulls/[0-9]+/merge' "$transcript" 2>/dev/null; then
+if grep -qE "gh pr ${merge_verb}|/pulls/[0-9]+/${merge_verb}" "$transcript" 2>/dev/null; then
   merged_pr=1
 fi
 
