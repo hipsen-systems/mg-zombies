@@ -20,6 +20,15 @@ one failing does not prevent the other from running.
   *true*. The stamp does not change that — it makes the human judgement
   explicit and attributable, so a stale stamp becomes a reviewable finding.
   Bump one only after actually reading the doc against the code.
+
+  **Minting a folder's first stamp across a merge.** Ordinary work never needs
+  to move a stamp, because a commit that changes a folder and its doc together
+  satisfies the check whatever the stamp says. The exception is a *first* stamp
+  for a folder whose history carries unaccompanied commits on both sides of a
+  merge — as `.claude/hooks/` did, with `4aab9d6` on `main` and `e667baf` on
+  the branch that added these checks. No commit has both as ancestors until the
+  merge itself, so no pre-merge sha yields a clean stamp. Land the merge, then
+  stamp at the merge commit in a follow-up. That is the whole workaround.
 - `check-flowdex.sh` — enforces the Flowdex write-back rule (see "Knowledge
   base" in the root `CLAUDE.md`). No-ops for a developer who has not connected
   the Flowdex MCP server.
@@ -51,4 +60,4 @@ every session's context, so it reaches transcripts the same way.
 containing the hook's own source, and another containing the tests' source,
 and requires both to be treated as sessions that did nothing.
 
-<!-- verified-against: 4a45066 -->
+<!-- verified-against: e6ba8dc -->
