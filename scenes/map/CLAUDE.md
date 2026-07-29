@@ -31,6 +31,18 @@ Cells are `CELL_SIZE` = 4 units, matching the KayKit dungeon grid: `wall` is
 4×4×1 and `floor_tile_large` is 4×4. Corridors are one cell wide, which leaves
 ~3 units clear once the wall pieces straddle the cell edges.
 
+**Corridors are single-file.** The ~3 units of clear floor are not ~3 units of
+*walkable* floor: the navmesh bakes at `agent_radius` 1.0 (see the gotcha
+below), so the walkable ribbon down a one-cell corridor is only ~1 unit wide.
+Two 0.4-radius agents need 0.8 of separation, so they *geometrically* fit across
+that ribbon with ~0.2 to spare — what actually keeps them single-file is that
+nothing steers them to opposite edges: `avoidance_enabled` is off by default and
+no code sets it. Encounter and enemy-behaviour design should assume units queue
+up in corridors; anything that needs them to pass needs either wider corridors
+(a 2-cell layout) or agent avoidance — a real design decision, not a tuning
+tweak. Note the 0.2 of slack is why avoidance is a plausible remedy rather than
+a hopeless one, and why this paragraph must be re-checked if it is ever enabled.
+
 ## What gets built
 
 - **Floor** — `floor_tile_large` per open cell, `floor_dirt_large` for the
@@ -87,3 +99,5 @@ ever gets collided with.
   `zombie_spawn_positions()` to populate the map with `scenes/enemies/`. The
   ordering is load-bearing — `Maze._ready()` runs before `Main._ready()`
   because Godot readies children first, so the geometry exists before the bake.
+
+<!-- verified-against: 4a272d6 -->

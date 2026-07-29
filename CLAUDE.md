@@ -4,12 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A Godot 4.7 game project ("mg-zombies"). Gameplay work has not started yet: the only scene is `scenes/main.tscn`, a placeholder main scene whose job is to prove the build pipeline produces a running build. There are no scripts yet.
+A Godot 4.7 game project ("mg-zombies") — see **Game design** below for what it is.
+
+This file holds what does not change when the code changes: design intent, team
+workflow, tooling, and conventions. **Current implementation state belongs in the
+per-folder docs, never here.** A description of the code written into this file
+has nothing anchoring it to the code, so nothing ever flags it when it stops
+being true — which is exactly how this section came to claim for weeks that the
+project had no scripts.
 
 Engine configuration (from `project.godot`):
 - Renderer: Forward Plus, Direct3D 12 driver on Windows
 - 3D physics engine: Jolt Physics
 - Display stretch: `canvas_items` mode with `expand` aspect
+
+### Code map
+
+Every folder holding code, and the doc that describes it. This is the one
+inventory the root keeps, and it is checked against the repo — a new code folder
+fails CI until it is listed here.
+
+| Folder | What lives there |
+|--------|------------------|
+| [`scenes/`](scenes/CLAUDE.md) | Top-level scenes, game startup order, RTS camera |
+| [`scenes/hero/`](scenes/hero/CLAUDE.md) | The player-controlled hero and its move controller |
+| [`scenes/enemies/`](scenes/enemies/CLAUDE.md) | Hostile actors — currently the basic zombie AI |
+| [`scenes/components/`](scenes/components/CLAUDE.md) | Reusable actor parts added as child nodes (`Health`) |
+| [`scenes/map/`](scenes/map/CLAUDE.md) | The maze map and its generation |
+| [`assets/`](assets/CLAUDE.md) | Third-party CC0 art and the licence record |
 
 ## Game design
 
@@ -38,11 +60,65 @@ Two developers collaborate via feature branches and pull requests.
 Every folder that contains code (scripts, scenes) must have its own `CLAUDE.md` describing that part of the project. Claude Code auto-loads nested `CLAUDE.md` files when working in a folder, so these act as living, self-loading documentation.
 
 Rules:
-- **Creating a new folder with code in it → create a `CLAUDE.md` in that folder.**
+- **Creating a new folder with code in it → create a `CLAUDE.md` in that folder**, and add it to the code map above.
 - **Adding or changing code in an existing folder → update that folder's `CLAUDE.md` in the same commit** if the change affects anything the doc describes (or should describe).
 - Contents: what this folder's part of the game does, the key scenes/scripts and how they relate, signals emitted/consumed, dependencies on other folders (autoloads, other systems), and any non-obvious decisions or gotchas.
 - Keep them short and current — a stale doc is worse than none. Delete statements that no longer hold rather than appending corrections.
 - These folder docs are also what PR reviewers use to judge a change, so an out-of-date doc is a valid review finding.
+
+### The `verified-against` stamp
+
+Every folder doc ends with a marker naming the commit it was last checked against:
+
+```markdown
+<!-- verified-against: 4a272d6 -->
+```
+
+It is a claim that a person or agent read the doc against the folder's code at
+that commit and found it true. It is the only such claim in the repo, so do not
+bump it casually — a stamp you did not earn is worse than an old one, because it
+converts "unknown" into "verified".
+
+You rarely need to touch it. A commit that changes both a folder's files and its
+doc satisfies the check on its own, so ordinary well-formed work never moves the
+stamp. Bump it when you have *audited* a doc: read it end to end against the
+code and corrected what drifted.
+
+### What is enforced, and what is not
+
+`.claude/hooks/check-folder-docs.sh` runs as a Stop hook locally and in CI on
+every PR (`docs-check` workflow). It runs three checks:
+
+| Check | Catches |
+|-------|---------|
+| same-change | Code changed in a folder without its doc changing; `project.godot` changed without the root doc changing |
+| code map | A code folder missing from the root's code map, or a map entry pointing at a doc that does not exist |
+| verification | A folder whose files changed since its `verified-against` stamp without the doc being touched — including history that predates these hooks, merge-conflict resolutions, and commits from anyone running without hooks |
+
+`bash .claude/hooks/check-folder-docs.sh --audit` runs the history checks alone,
+against any checkout.
+
+Know the limit: these verify that a doc was *edited*, never that it is *true*.
+Nothing mechanical can check the latter. The stamp exists to make the human
+judgement explicit and attributable rather than assumed — treat a stale stamp as
+a real finding in cross-review.
+## Knowledge base (Flowdex)
+
+The team keeps a shared, AI-readable wiki in Flowdex, project slug **`mg-zombies`**. It is the long-term memory the folder docs can't hold: architecture decisions and *why* they were made, gotchas, conventions, and the state of the project. Both developers' Claude sessions read and write it.
+
+**Connecting (once per developer).** Flowdex reaches Claude Code as an MCP connector on your own Claude account, authenticated with your personal `nx_live_` token. Add it in your Claude account's connector settings. The token is a secret: it belongs in that connector config only — never in this repo, a PR, or an issue. Ask the other developer for a Flowdex org invite if you don't have an account yet. Until you connect it, the hooks below no-op and everything else here still works.
+
+**Using it — the two halves.**
+- **Read before you act.** At the start of substantive work (gameplay features, architecture decisions, asset or infra changes), invoke the `nexus-knowledge-base` skill: `get_project_structure`, then `read_index` the pages relevant to the task. Reading one page is not enough. Skip it for trivial one-liners.
+- **Write durable knowledge back.** Save what outlives the chat as a small single-topic page under the right category folder, and record the change with `append_changelog`. Loading context and writing nothing back is the failure this system exists to prevent.
+
+**The wiki tracks merged `main`, not the working tree.** Unmerged work may be documented, but only under an explicit `## In flight — PR #N <branch> (not merged)` heading. A reader must never have to check out a branch to learn whether a page is true. When in doubt read `git show main:<path>`, not the working copy — both developers' sessions share one checkout.
+
+**Merging a PR is a wiki event.** Whenever a PR is accepted — yours or your partner's — update Flowdex in the same session, before moving on: fold that PR's "In flight" block into the page body, correct whatever else it changed, add pages for new concepts, and `append_changelog` with the PR number and title.
+
+**Layout:** root `overview.md` hub plus category folders `game-design/`, `engine/`, `workflow/`, `build-release/`, `assets/`. Pages use the sections Overview / Key information / Relations / Last updated, stay single-topic, and link with `[[wiki-links]]`. Prefer correcting a page over appending to it — a stale statement left in place is worse than a missing one. Because both developers can read the wiki, citing pages in PR bodies and issues is encouraged.
+
+**Enforcement.** Two hooks in `.claude/settings.json` close the gap between invoking the skill and actually using it: `SessionStart` injects a reminder, and `Stop` runs `.claude/hooks/check-flowdex.sh`, which blocks the session from ending when it never wrote anything back but either edited `.gd`/`.tscn`/`CLAUDE.md`/config files or merged a PR. It never blocks a developer without the connector, a read-only session, a scratchpad-only session, or twice in a row.
 
 ## Running Godot
 

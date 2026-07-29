@@ -7,10 +7,11 @@ dying; his own attack comes in issue #11).
   placeholder capsule + a small "nose" box marking the facing direction, a
   `CollisionShape3D`, a `NavigationAgent3D`, and a `Health` child (100 HP,
   `scenes/components/`). In the `hero` group — that is how zombies find him,
-  so don't rename it. The visual gets replaced by
-  the KayKit Knight once the asset PR lands; the node forward direction is -Z
-  (Godot convention) so a rigged model drops in without a compensating
-  rotation.
+  so don't rename it. The KayKit Knight is already in the repo
+  (`assets/characters/hero/Knight.glb`, imported in issue #12) — swapping the
+  capsule for it is outstanding work, not a pending dependency. The node
+  forward direction is -Z (Godot convention) so the rigged model drops in
+  without a compensating rotation.
 - `hero.gd` (`class_name Hero`) — click-to-move controller.
   - **Input decision (documented per issue #5):** *right*-click issues the
     move command (RTS convention); left-click is reserved for
@@ -60,3 +61,5 @@ dying; his own attack comes in issue #11).
   signals arrive with issue #8.
 - Damaged by `scenes/enemies/zombie.gd`, which finds him through the `hero`
   group.
+
+<!-- verified-against: 4a45066 -->
