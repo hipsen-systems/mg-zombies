@@ -2,9 +2,13 @@ name: Folder docs check
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 jobs:
+  # Blocking gate on every PR: same-change + code map + verification stamps.
   docs-check:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -17,3 +21,19 @@ jobs:
 
       - name: Check per-folder CLAUDE.md docs
         run: bash .claude/hooks/check-folder-docs.sh --diff "origin/${{ github.base_ref }}...HEAD"
+
+  # Post-merge audit of `main`. The PR gate only sees a PR's own range, so it
+  # cannot see drift that arrives another way — a merge commit resolving a
+  # conflict, or anything landing outside a PR. This re-checks the stamps
+  # against the whole history and fails loudly on main if one no longer holds.
+  docs-audit:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Audit CLAUDE.md verification stamps
+        run: bash .claude/hooks/check-folder-docs.sh --audit
