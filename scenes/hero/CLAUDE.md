@@ -207,4 +207,4 @@ numbers.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: a93bd80 -->
+<!-- verified-against: 8ce7816 -->
