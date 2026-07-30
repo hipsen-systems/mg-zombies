@@ -6,7 +6,8 @@ on:
     branches: [main]
 
 jobs:
-  # Blocking gate on every PR: same-change + code map + verification stamps.
+  # Blocking gate on every PR: same-change + code map + verification stamps +
+  # dependency graph.
   docs-check:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

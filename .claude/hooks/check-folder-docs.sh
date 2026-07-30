@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Enforces the documentation rules from the root CLAUDE.md.
 #
-# Three checks, deliberately layered — each catches what the previous cannot:
+# Four checks, deliberately layered — each catches what the previous cannot:
 #
 #   A. same-change   Code changed in a folder => that folder's CLAUDE.md changed
 #                    in the same set. Also: project.godot changed => the root
@@ -17,6 +17,12 @@
 #                    also touching the doc. Catches everything that bypasses A:
 #                    history predating these hooks, merge-conflict resolutions,
 #                    web edits, and contributors running without hooks.
+#
+#   D. dependency    Every folder doc declares `depends-on: [...]` — the folders
+#      graph         its own claims rest on — and no doc is left unread after
+#                    code in one of those moved. Catches what A–C structurally
+#                    cannot: each of them examines a folder alone, so none can
+#                    see a doc invalidated from *outside* its own folder.
 #
 # A commit that changes both a folder's files and its doc satisfies C on its
 # own, so the stamp never needs bumping for well-formed work. Re-stamping is
@@ -213,14 +219,17 @@ check_graph() {
   folder_docs | while IFS= read -r doc; do
     d=$(dirname "$doc")
 
-    # Both halves matter. A missing block is obvious; a block that simply omits
-    # the key is not, and silence there is indistinguishable from "no
-    # dependencies" -- which is why declaring none is written `depends-on: []`
-    # rather than left out.
+    # Three ways this goes wrong, and every one of them has to be loud. A
+    # missing block is obvious, and a block omitting the key nearly so. The
+    # third is not: an unbracketed `depends-on: scenes` satisfies a bare key
+    # test, while declared_deps extracts nothing from it -- so the doc reads as
+    # having no dependencies, indistinguishable from a deliberate `[]`, and no
+    # BADDEP or DEPSTALE can ever fire for it. That is this check's own failure
+    # mode reproduced inside its parser, so the gate demands the bracket form.
     if ! sed -n '1p' "$doc" | grep -qx -- '---' \
-       || ! sed -n '2,/^---$/p' "$doc" | grep -q '^depends-on:'; then
+       || ! sed -n '2,/^---$/p' "$doc" | grep -q '^depends-on:[[:space:]]*\[.*\]'; then
       echo "NOFRONT     $doc"
-      echo "            no 'depends-on:' key in a frontmatter block on line 1"
+      echo "            no 'depends-on: [...]' key in a frontmatter block on line 1"
       continue
     fi
 

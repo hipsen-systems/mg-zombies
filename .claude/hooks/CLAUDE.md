@@ -14,9 +14,9 @@ one failing does not prevent the other from running.
   the root's map, and every entry resolves), **verification** (every folder
   doc carries a `verified-against: <sha>` stamp, and its folder has not changed
   since without the doc being touched), and **dependency graph** (every folder
-  doc *declares* `depends-on:` — `[]` if it has none — each entry resolves, and
-  no doc is left unread after code it depends on moved). Runs here as a Stop
-  hook, in CI on every
+  doc *declares* `depends-on: [...]` — `[]` if it has none — each entry
+  resolves, and no doc is left unread after code it depends on moved). Runs
+  here as a Stop hook, in CI on every
   PR via `--diff <range>`, and on push to `main` via `--audit` — the PR gate
   only sees one range, so it cannot see drift arriving another way.
 
@@ -33,6 +33,15 @@ one failing does not prevent the other from running.
   convention would be misparsed by the parser it explains — the same shape as
   the stamp parser taking the *last* match, and as the Flowdex hook reading its
   own source. Assume any parser added here will hit it too.
+
+  **The bracket form is required, and the reason is not cosmetic.** An
+  unbracketed `depends-on: scenes` satisfies a bare key test while the parser
+  extracts nothing from it, so the doc reads as having no dependencies —
+  indistinguishable from a deliberate `[]`, with no `BADDEP` or `DEPSTALE` able
+  to fire for it ever again. That is this check's own failure mode reproduced
+  inside its parser, which is why the gate tests for `[...]` rather than for the
+  key alone. The general lesson: every gate here should ask whether a
+  *malformed* input is silently read as an *empty* one.
 
   **Both graph and stamp checks must exclude nested subfolders.** A git pathspec
   of `scenes` also matches `scenes/map/` and `scenes/hero/`, so the first version
