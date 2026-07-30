@@ -67,4 +67,4 @@ dying; his own attack comes in issue #11).
 - Damaged by `scenes/enemies/zombie.gd`, which finds him through the `hero`
   group.
 
-<!-- verified-against: 4a45066 -->
+<!-- verified-against: 8a4044b -->

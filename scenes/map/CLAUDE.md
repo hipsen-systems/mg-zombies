@@ -104,4 +104,4 @@ ever gets collided with.
   ordering is load-bearing — `Maze._ready()` runs before `Main._ready()`
   because Godot readies children first, so the geometry exists before the bake.
 
-<!-- verified-against: 4a272d6 -->
+<!-- verified-against: 8a4044b -->

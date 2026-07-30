@@ -112,4 +112,4 @@ hero could whittle a zombie down from outside its detection radius.
 - Still a placeholder capsule. The Quaternius zombie models in
   `assets/characters/zombies/` are imported but unused, matching the hero.
 
-<!-- verified-against: 43748bc -->
+<!-- verified-against: 8a4044b -->
