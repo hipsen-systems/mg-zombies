@@ -27,14 +27,23 @@ Top-level game scenes and their scripts.
 
 ## HUD
 
-A deliberately minimal `CanvasLayer` in `main.tscn`, driven by three lines of
-`main.gd` rather than its own scene — there is not enough UI yet to justify a
-`scenes/ui/` folder, and issue #7 needed the hero's HP to be *visible* to be
-testable at all. Split it out when the skill tree or XP bar arrives.
+A deliberately minimal `CanvasLayer` in `main.tscn`, driven by a handful of
+lines in `main.gd` rather than its own scene — issue #7 needed the hero's HP to
+be *visible* to be testable at all, and issue #11 needed the armed-attack state
+to be visible for the same reason.
 
 - `HUD/HealthBar` (`ProgressBar`, bottom-left) with a `Value` `Label` child
   showing `current / max`, fed by `Hero.health`'s `health_changed`.
 - `HUD/DeathLabel` — hidden until the hero dies.
+- `HUD/AttackMoveLabel` — shown while the attack command is armed (`A`
+  pressed, waiting for the click). A mode the player cannot see is a mode they
+  will forget they are in. Driven by `Hero.attack_move_armed_changed`.
+- `HUD/ControlsLabel` — static one-liner naming the two commands, bottom-right.
+  The web build is the project's front door and arrives with no instructions.
+
+**This has now outgrown living here**, which is what issue #36 addresses: it
+adds a unit info bar and creates `scenes/ui/` to hold all of it. Add UI there,
+not here.
 
 ## Death and restart
 
@@ -97,11 +106,17 @@ describes. See `scenes/enemies/CLAUDE.md`.
 - Instances `scenes/map/maze.tscn` and `scenes/hero/hero.tscn` from the .tscn,
   and `scenes/enemies/zombie.tscn` at runtime; the camera's `target` export
   points at the hero.
-- Input action `move_command` (right mouse button) is defined in
-  `project.godot` and consumed by the hero, not by anything in this folder.
+- **Input actions** are defined in `project.godot` and every one of them is
+  consumed by `scenes/hero/`, not by anything in this folder. What each *means*
+  is that folder's to document; this is only the inventory:
+  `move_command` (right mouse), `select_command` (left mouse),
+  `attack_move` (`A`), `cancel_command` (`Escape`).
 - `Maze` emits `built`; nothing consumes it yet.
-- `main.gd` consumes `Hero.died` and `Hero.health.health_changed`.
-  `Zombie.died` is unconsumed — it is the XP hook for issue #8.
+- `main.gd` consumes `Hero.died`, `Hero.health.health_changed` and
+  `Hero.attack_move_armed_changed`. Unconsumed so far: `Hero.move_ordered` and
+  `Hero.attack_ordered` (for the selection UI, issue #36), and both death
+  signals — `Zombie.died` and the hero's attributed `Hero.killed`, which are
+  the XP hooks for issue #8.
 
 ## Tooling note
 

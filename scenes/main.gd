@@ -1,5 +1,5 @@
 extends Node3D
-## Game entry scene (issues #5, #6, #7).
+## Game entry scene (issues #5, #6, #7, #11).
 ##
 ## Owns the order the level comes up in: the maze builds itself in its own
 ## _ready() (children run first), then this script places the hero on the maze's
@@ -26,6 +26,7 @@ const RESTART_DELAY := 2.5
 @onready var _health_bar: ProgressBar = $HUD/HealthBar
 @onready var _health_value: Label = $HUD/HealthBar/Value
 @onready var _death_label: Label = $HUD/DeathLabel
+@onready var _attack_move_label: Label = $HUD/AttackMoveLabel
 
 
 func _ready() -> void:
@@ -36,6 +37,7 @@ func _ready() -> void:
 
 	_hero.health.health_changed.connect(_on_hero_health_changed)
 	_hero.died.connect(_on_hero_died)
+	_hero.attack_move_armed_changed.connect(_on_attack_move_armed_changed)
 	_on_hero_health_changed(_hero.health.current, _hero.health.max_health)
 
 
@@ -56,6 +58,12 @@ func _on_hero_health_changed(current: float, maximum: float) -> void:
 	_health_bar.max_value = maximum
 	_health_bar.value = current
 	_health_value.text = "%d / %d" % [roundi(current), roundi(maximum)]
+
+
+## Arming the attack command changes what the *next* left-click means, and a
+## mode the player cannot see is a mode they will forget they are in.
+func _on_attack_move_armed_changed(armed: bool) -> void:
+	_attack_move_label.visible = armed
 
 
 func _on_hero_died() -> void:

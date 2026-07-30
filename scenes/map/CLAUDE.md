@@ -82,7 +82,7 @@ ever gets collided with.
   with a floor tile flush with the top of the walls, tinted dark so rock never
   competes with the lit walkable floor for the player's eye. Giving those caps
   collision would bake navmesh islands *inside* solid rock — and since
-  `Hero.command_move_to()` clamps a click onto the nearest navmesh point,
+  every `Hero` order clamps its destination onto the nearest navmesh point,
   clicking a wall could then order the hero somewhere he can never reach.
 - **`agent_radius` on the navmesh is 1.0, not the hero's 0.4.** At 0.5 the
   baked surface hugged the walls, so waypoints landed in the pockets where two

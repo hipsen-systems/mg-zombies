@@ -9,7 +9,8 @@ Hostile actors. Currently just the basic zombie (issue #7).
 - `zombie.tscn` — `CharacterBody3D`, collision layer 4 (enemies), mask 1|2|3.
   Placeholder green capsule + facing "nose" under a `Visual` node, a
   `CollisionShape3D`, a `NavigationAgent3D`, and a `Health` child (30 HP). In
-  the `enemies` group.
+  the `enemies` group — that is how the hero finds and targets it, so don't
+  rename it: `scenes/hero/` looks enemies up by group, never by class.
 - `zombie.gd` (`class_name Zombie`) — roam / notice / chase / melee AI.
 
 ## The four radii
@@ -70,7 +71,24 @@ from where the map author placed them.
   the mask is the half that changes behaviour.
 
 `take_damage()` aggroes regardless of range, sight or leash — otherwise the
-hero could whittle a zombie down from outside its detection radius.
+hero could whittle a zombie down from outside its detection radius. It also
+flashes the body (see the gotcha below) and resets the regen timer.
+
+## Regeneration
+
+`regen_delay` (6 s) then `regen_per_second` (3.0) — a 30 HP zombie is whole
+again ten seconds after the last hit lands.
+
+Two conditions gate it, and they close different escapes:
+
+- The **timer** stops a zombie healing between the hero's swings.
+- The **state check** — only `ROAM` and `RETURN` — stops one healing while it
+  is chasing. A fight the player is slowly winning must not turn into one they
+  cannot win at all, and a zombie that heals mid-chase does exactly that.
+
+Together they mean the only way to undo damage is to actually break away. That
+is what closes the chip-and-retreat exploit `leash_radius` would otherwise hand
+the hero, now that he can deal damage at all (issue #11).
 
 ## Gotchas
 
@@ -89,9 +107,20 @@ hero could whittle a zombie down from outside its detection radius.
   it and zombies detect the hero through solid rock, then appear round a corner
   for no visible reason.
 - **Wander targets are clamped with `NavigationServer3D.map_get_closest_point`**,
-  the same way `Hero.command_move_to` clamps a click — a random point that lands
+  the same way every `Hero` order clamps its destination — a random point that lands
   inside rock becomes the nearest reachable spot instead of a path request that
   resolves to nothing.
+- **The hit flash needs its own material, and `_ready()` duplicates one.** The
+  body material is a sub-resource of `zombie.tscn`, and Godot shares a scene's
+  sub-resources across every instance of it — tinting one zombie would tint the
+  whole horde. `_claim_own_material()` duplicates it per instance. Done in code
+  rather than by ticking `resource_local_to_scene` on the resource: an editor
+  round-trip can quietly clear a flag, and nothing would fail until someone
+  noticed the entire map flashing at once. Anything else that animates a
+  material on this scene has the same problem.
+- **The flash fires *before* the damage is applied.** A killing blow runs
+  `_on_health_died()` synchronously inside `Health.take_damage()`, so a flash
+  started afterwards would be repainting a corpse.
 - **Zombies don't collide with each other** (mask omits layer 4). They *are*
   blocked by the world and by the hero, but the hero (mask 1|2) is never blocked
   by them. Zombies that collide jam solid in a one-cell corridor, and a hero who
@@ -104,8 +133,14 @@ hero could whittle a zombie down from outside its detection radius.
 - Finds the hero via `get_tree().get_first_node_in_group("hero")` — no scene
   path, so a zombie works in any scene that has a hero and a baked navmesh.
 - Calls `Hero.take_damage()`; reads `Hero.is_dead()` to stop hitting a corpse.
+- **Is damaged by the hero through the same two methods, in reverse.**
+  `scenes/hero/` calls `take_damage()` and reads `is_dead()` on whatever is in
+  the `enemies` group, without ever naming `Zombie`. So the pair of methods and
+  the group name are a two-way contract; changing either signature breaks a
+  folder that does not mention this one.
 - Emits `died(zombie)`. Nothing consumes it yet — it is the hook for XP
-  (issue #8).
+  (issue #8). Note the hero emits its own `killed(victim)` from the swing that
+  lands the blow, which is the *attributed* version of the same moment.
 - Spawned by `scenes/main.gd` at the `Z` cells of `scenes/map/maze.gd`; the
   spawner sets `position` *before* `add_child`, because `_ready()` captures
   `global_position` as home.
