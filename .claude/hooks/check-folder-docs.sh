@@ -213,9 +213,14 @@ check_graph() {
   folder_docs | while IFS= read -r doc; do
     d=$(dirname "$doc")
 
-    if ! sed -n '1p' "$doc" | grep -qx -- '---'; then
+    # Both halves matter. A missing block is obvious; a block that simply omits
+    # the key is not, and silence there is indistinguishable from "no
+    # dependencies" -- which is why declaring none is written `depends-on: []`
+    # rather than left out.
+    if ! sed -n '1p' "$doc" | grep -qx -- '---' \
+       || ! sed -n '2,/^---$/p' "$doc" | grep -q '^depends-on:'; then
       echo "NOFRONT     $doc"
-      echo "            no 'depends-on:' frontmatter block on line 1"
+      echo "            no 'depends-on:' key in a frontmatter block on line 1"
       continue
     fi
 
@@ -270,6 +275,8 @@ problems=$(
   echo "DANGLING    add the row, or drop it if the folder is gone."
   echo "NOFRONT     add a frontmatter block on line 1 naming the folders this"
   echo "            doc's claims rest on:  ---\\ndepends-on: [scenes, assets]\\n---"
+  echo "            Declaring none is 'depends-on: []' — an explicit claim, not"
+  echo "            an omitted key, which nothing could tell from forgetting."
   echo "SELFDEP     drop the self-reference; a folder does not depend on itself."
   echo "BADDEP      the named folder has no CLAUDE.md — fix the name or add the doc."
   echo "DEPSTALE    a folder this doc depends on changed. Re-read this doc against"
