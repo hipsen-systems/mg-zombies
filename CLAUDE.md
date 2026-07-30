@@ -111,12 +111,17 @@ The team keeps a shared, AI-readable wiki in Flowdex, project slug **`mg-zombies
 
 **Connecting (once per developer).** Flowdex reaches Claude Code as an MCP connector on your own Claude account, authenticated with your personal `nx_live_` token. Add it in your Claude account's connector settings. The token is a secret: it belongs in that connector config only — never in this repo, a PR, or an issue. Ask the other developer for a Flowdex org invite if you don't have an account yet. Until you connect it, the hooks below no-op and everything else here still works.
 
-**What belongs here, and what belongs in a `CLAUDE.md`.** The two must never describe the same thing. A fact written in two places gets corrected in one, and the survivor is a confident lie — this is the single largest source of doc rot, and it has already happened here. The test is ownership:
+**What belongs here, and what belongs in a `CLAUDE.md`.** The two must never describe the same thing. A fact written in two places gets corrected in one, and the survivor is a confident lie — this is the single largest source of doc rot, and it has already happened here. The test is ownership, and it runs against *both* in-repo doc layers, not just the folder ones:
 
-- **Exactly one folder owns a fact → that folder's `CLAUDE.md` owns it, and Flowdex only links to it.** Tuning values, APIs, signal names, file-level gotchas. A Flowdex page about a single folder is therefore a *stub*: what the thing is, what constraint it imposes on the rest of the game, which folder holds the detail, and its links. Nothing more.
-- **No single folder owns it → Flowdex owns it.** Cross-cutting contracts (physics layers, navigation settings, scene startup order), design intent, and project state. These have no folder to live in, which is exactly why the wiki exists.
+- **A folder owns a fact → that folder's `CLAUDE.md` owns it.** Tuning values, APIs, signal names, file-level gotchas.
+- **This root file owns a fact → it owns it.** Team workflow, tooling, conventions, builds and releases, the asset policy — everything this file's own opening promises.
+- **Nothing in the repo owns it → Flowdex owns it.** Cross-cutting contracts that span folders (physics layers, navigation, scene startup order), design intent, and project state. These have nowhere in the repo to live, which is exactly why the wiki exists.
 
-Concretely: **a Flowdex page may name folders, never files, symbols, or tuning values.** `scenes/map/` is fine; `maze.gd`, `command_move_to()`, and `agent_radius = 1.0` are not — those belong in a folder doc. Issue and PR numbers are project state, not code facts, and stay welcome. The rule scales in the right direction: as the codebase grows, more concerns become cross-cutting, so the wiki grows where it is uniquely useful instead of mirroring the source tree.
+A Flowdex page about something the repo already owns is therefore a *stub*: what the thing is, what constraint it imposes on everyone else, where the detail lives, and its links. Nothing more.
+
+**The concrete test: a page may point at a file, never restate what is inside it.** For game code that collapses to a plain ban — name the folder (`scenes/map/`), never `maze.gd`, `command_move_to()`, or `agent_radius = 1.0`. Pages about repo infrastructure may name the specific workflow or hook file, since "the build check" is unusable without it, but they still record what it *guarantees*, never how it is written. Issue and PR numbers are project state, not code facts, and stay welcome.
+
+The rule scales in the right direction: as the codebase grows, more concerns become cross-cutting, so the wiki grows where it is uniquely useful instead of mirroring the source tree.
 
 **Using it — the two halves.**
 - **Read before you act.** At the start of substantive work (gameplay features, architecture decisions, asset or infra changes), invoke the `nexus-knowledge-base` skill: `get_project_structure`, then `read_index` the pages relevant to the task. Reading one page is not enough. Skip it for trivial one-liners.
