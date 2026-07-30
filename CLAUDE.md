@@ -113,9 +113,11 @@ The team keeps a shared, AI-readable wiki in Flowdex, project slug **`mg-zombies
 
 **What belongs here, and what belongs in a `CLAUDE.md`.** The two must never describe the same thing. A fact written in two places gets corrected in one, and the survivor is a confident lie — this is the single largest source of doc rot, and it has already happened here. The test is ownership, and it runs against *both* in-repo doc layers, not just the folder ones:
 
-- **A folder owns a fact → that folder's `CLAUDE.md` owns it.** Tuning values, APIs, signal names, file-level gotchas.
-- **This root file owns a fact → it owns it.** Team workflow, tooling, conventions, builds and releases, the asset policy — everything this file's own opening promises.
-- **Nothing in the repo owns it → Flowdex owns it.** Cross-cutting contracts that span folders (physics layers, navigation, scene startup order), design intent, and project state. These have nowhere in the repo to live, which is exactly why the wiki exists.
+- **A folder owns a fact → that folder's `CLAUDE.md` owns it.** Everything listed under `Contents:` in "Per-folder context docs" below.
+- **This root file owns a fact → it owns it.** Its own opening list — design intent, team workflow, tooling, conventions — and the sections that build on them, including game design, builds and releases, and the asset policy.
+- **Nothing in the repo owns it → Flowdex owns it.** Cross-cutting contracts that span folders (physics layers, navigation, scene startup order), *cross-system design rationale* — why a constraint in one folder binds work in another — and project state. These have nowhere in the repo to live, which is exactly why the wiki exists.
+
+Watch the boundary between the last two: the game's **design intent** (the core loop, progression, the skill tree) is owned here, in `## Game design`. What the wiki owns is the *rationale that spans systems* — why the map's corridor width constrains encounter design, not what the encounters should be.
 
 A Flowdex page about something the repo already owns is therefore a *stub*: what the thing is, what constraint it imposes on everyone else, where the detail lives, and its links. Nothing more.
 
