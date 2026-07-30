@@ -27,14 +27,23 @@ Top-level game scenes and their scripts.
 
 ## HUD
 
-A deliberately minimal `CanvasLayer` in `main.tscn`, driven by three lines of
-`main.gd` rather than its own scene — there is not enough UI yet to justify a
-`scenes/ui/` folder, and issue #7 needed the hero's HP to be *visible* to be
-testable at all. Split it out when the skill tree or XP bar arrives.
+A deliberately minimal `CanvasLayer` in `main.tscn`, driven by a handful of
+lines in `main.gd` rather than its own scene — issue #7 needed the hero's HP to
+be *visible* to be testable at all, and issue #11 needed the armed-attack state
+to be visible for the same reason.
 
 - `HUD/HealthBar` (`ProgressBar`, bottom-left) with a `Value` `Label` child
   showing `current / max`, fed by `Hero.health`'s `health_changed`.
 - `HUD/DeathLabel` — hidden until the hero dies.
+- `HUD/AttackMoveLabel` — shown while the attack command is armed (`A`
+  pressed, waiting for the click). A mode the player cannot see is a mode they
+  will forget they are in. Driven by `Hero.attack_move_armed_changed`.
+- `HUD/ControlsLabel` — static one-liner naming the two commands, bottom-right.
+  The web build is the project's front door and arrives with no instructions.
+
+**This has now outgrown living here**, which is what issue #36 addresses: it
+adds a unit info bar and creates `scenes/ui/` to hold all of it. Add UI there,
+not here.
 
 ## Death and restart
 
@@ -81,10 +90,20 @@ inspector reads properly.
 
 | Layer | Used for | Who is on it | Who masks it |
 |-------|----------|--------------|--------------|
-| 1     | Ground/floor (click-to-move rays collide with this only) | floor tiles | hero, zombies |
-| 2     | Walls & static obstacles (also what the zombie line-of-sight ray tests) | wall pieces | hero, zombies |
+| 1     | Ground/floor (ground-click rays collide with this only) | floor tiles | hero, zombies |
+| 2     | Walls & static obstacles (also tested by both line-of-sight rays and by the hero's attack-targeting click, so neither sees through rock) | wall pieces | hero, zombies |
 | 3     | Hero | hero | zombies |
-| 4     | Enemies | zombies | *nobody* |
+| 4     | Enemies (also what the hero's attack-targeting ray tests) | zombies | *nobody* |
+
+**"Who masks it" is about bodies, not queries.** A `collision_mask` decides what
+a body is stopped by; a ray query carries its own mask and is stopped by
+nothing. Three of the four layers now have a ray consumer and no body masking
+them for that purpose, so the two columns answer different questions — read
+`nobody` in the last row as "nothing is *blocked* by enemies", which is what the
+paragraph below depends on. Ray consumers belong in the "Used for" column, and
+adding one is a change to this table even though no mask moved. That distinction
+is what a cross-review of PR #41 caught: the hero gained an attack-targeting ray
+against layer 4 while this row still read as though nothing touched it.
 
 The asymmetry in the last two rows is intentional: zombies are blocked by the
 hero, the hero is not blocked by zombies, and zombies do not collide with each
@@ -97,11 +116,17 @@ describes. See `scenes/enemies/CLAUDE.md`.
 - Instances `scenes/map/maze.tscn` and `scenes/hero/hero.tscn` from the .tscn,
   and `scenes/enemies/zombie.tscn` at runtime; the camera's `target` export
   points at the hero.
-- Input action `move_command` (right mouse button) is defined in
-  `project.godot` and consumed by the hero, not by anything in this folder.
+- **Input actions** are defined in `project.godot` and every one of them is
+  consumed by `scenes/hero/`, not by anything in this folder. What each *means*
+  is that folder's to document; this is only the inventory:
+  `move_command` (right mouse), `select_command` (left mouse),
+  `attack_move` (`A`), `cancel_command` (`Escape`).
 - `Maze` emits `built`; nothing consumes it yet.
-- `main.gd` consumes `Hero.died` and `Hero.health.health_changed`.
-  `Zombie.died` is unconsumed — it is the XP hook for issue #8.
+- `main.gd` consumes `Hero.died`, `Hero.health.health_changed` and
+  `Hero.attack_move_armed_changed`. Unconsumed so far: `Hero.move_ordered` and
+  `Hero.attack_ordered` (for the selection UI, issue #36), and both death
+  signals — `Zombie.died` and the hero's attributed `Hero.killed`, which are
+  the XP hooks for issue #8.
 
 ## Tooling note
 
@@ -110,4 +135,4 @@ files (it doesn't load the global class cache), so it reports a false
 "Could not find type" on scripts that reference `Hero`, `Maze`, or
 `RTSCamera`. Run the scene instead to check those.
 
-<!-- verified-against: 8a4044b -->
+<!-- verified-against: 0fc132f -->

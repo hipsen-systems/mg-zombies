@@ -61,6 +61,12 @@ const HERO_GROUP := "hero"
 ## How long the corpse lies there before it sinks and frees itself.
 const CORPSE_LINGER := 2.0
 
+## Damage feedback: the body washes out for a moment, then fades back. Short on
+## purpose — long enough to read at a glance, short enough that a zombie taking
+## hits on a 0.9 s cooldown is not permanently pink.
+const HIT_FLASH_TIME := 0.12
+const HIT_FLASH_COLOUR := Color(1.0, 0.88, 0.88)
+
 @export_group("Roaming")
 ## Radius of the patch this zombie wanders while idle, centred on its spawn.
 @export var roam_radius := 6.0
@@ -87,6 +93,11 @@ const CORPSE_LINGER := 2.0
 @export var attack_damage := 9.0
 @export var attack_cooldown := 1.3
 
+@export_group("Regeneration")
+## Seconds without taking damage before health starts coming back.
+@export var regen_delay := 6.0
+@export var regen_per_second := 3.0
+
 var _state: State = State.ROAM
 var _home := Vector3.ZERO
 var _hero: Hero = null
@@ -94,11 +105,16 @@ var _sense_timer := 0.0
 var _roam_pause := 0.0
 var _alert_timer := 0.0
 var _attack_timer := 0.0
+var _regen_timer := 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+var _body_material: StandardMaterial3D = null
+var _base_albedo := Color.WHITE
+var _flash_tween: Tween = null
 
 @onready var health: Health = $Health
 @onready var _nav_agent: NavigationAgent3D = $NavigationAgent3D
 @onready var _visual: Node3D = $Visual
+@onready var _body_mesh: MeshInstance3D = $Visual/BodyMesh
 
 
 func _ready() -> void:
@@ -106,6 +122,7 @@ func _ready() -> void:
 	# an encounter simply by putting a spawn marker on a cell.
 	_home = global_position
 	health.died.connect(_on_health_died)
+	_claim_own_material()
 	# Stagger the sense ticks so a room full of zombies does not raycast on the
 	# same frame, and so they never move in lockstep.
 	_sense_timer = randf() * SENSE_INTERVAL
@@ -131,6 +148,11 @@ func is_dead() -> bool:
 func take_damage(amount: float) -> void:
 	if is_dead():
 		return
+	_regen_timer = regen_delay
+	# Flash before applying the damage, not after: a killing blow runs
+	# _on_health_died() synchronously inside take_damage(), and a flash started
+	# after that would be repainting a corpse.
+	_flash_hit()
 	health.take_damage(amount)
 	# Being hit aggroes regardless of range, sight or leash — otherwise the
 	# hero could whittle a zombie down from outside its detection radius.
@@ -156,6 +178,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y = 0.0
 
 	_attack_timer = maxf(_attack_timer - delta, 0.0)
+	_tick_regen(delta)
 
 	_sense_timer -= delta
 	if _sense_timer <= 0.0:
@@ -240,6 +263,53 @@ func _process_attack(delta: float) -> void:
 		return
 	_attack_timer = attack_cooldown
 	hero.take_damage(attack_damage)
+
+
+## Out-of-combat regeneration.
+##
+## Two conditions, and they cover different escapes. The timer stops a zombie
+## healing between the hero's swings. The state check stops one healing while it
+## is chasing him — a fight the player is slowly winning must not turn into one
+## they cannot win at all, and a zombie that heals mid-chase does exactly that.
+## Together they mean the only way to undo damage is to actually break away,
+## which is what closes the chip-and-retreat exploit the leash would otherwise
+## hand the hero.
+func _tick_regen(delta: float) -> void:
+	_regen_timer = maxf(_regen_timer - delta, 0.0)
+	if _regen_timer > 0.0:
+		return
+	if not (_state == State.ROAM or _state == State.RETURN):
+		return
+	if health.current >= health.max_health:
+		return
+	health.heal(regen_per_second * delta)
+
+
+## Give this zombie its own copy of the body material.
+##
+## The material is a sub-resource of zombie.tscn, and Godot shares a scene's
+## sub-resources across every instance of it — so tinting one zombie would tint
+## the entire horde. Duplicating in code rather than ticking
+## resource_local_to_scene on the resource: an editor round-trip can quietly
+## clear a flag, and nothing would fail until someone noticed the whole map
+## flashing at once.
+func _claim_own_material() -> void:
+	var material := _body_mesh.get_surface_override_material(0) as StandardMaterial3D
+	if material == null:
+		return
+	_body_material = material.duplicate()
+	_body_mesh.set_surface_override_material(0, _body_material)
+	_base_albedo = _body_material.albedo_color
+
+
+func _flash_hit() -> void:
+	if _body_material == null:
+		return
+	if _flash_tween != null and _flash_tween.is_valid():
+		_flash_tween.kill()
+	_body_material.albedo_color = HIT_FLASH_COLOUR
+	_flash_tween = create_tween()
+	_flash_tween.tween_property(_body_material, "albedo_color", _base_albedo, HIT_FLASH_TIME)
 
 
 func _enter_roam() -> void:

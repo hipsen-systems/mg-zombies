@@ -17,6 +17,12 @@ Engine configuration (from `project.godot`):
 - Renderer: Forward Plus, Direct3D 12 driver on Windows
 - 3D physics engine: Jolt Physics
 - Display stretch: `canvas_items` mode with `expand` aspect
+- Two registries also live in that file and are **owned elsewhere**: the physics
+  layer names and the input action names. `scenes/CLAUDE.md` holds both — what
+  each layer means, and the inventory of actions with the folder that consumes
+  them. Reproducing either here would create exactly the second copy the
+  ownership rule exists to prevent, so when you add a layer or an action, that
+  is the doc to update.
 
 ### Code map
 
