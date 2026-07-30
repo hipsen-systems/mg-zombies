@@ -1,3 +1,7 @@
+---
+depends-on: [scenes, scenes/hero, scenes/map, scenes/components, assets]
+---
+
 # scenes/enemies/
 
 Hostile actors. Currently just the basic zombie (issue #7).
@@ -49,9 +53,21 @@ from where the map author placed them.
 - **RETURN** — leashed or lost him. **Ignores the hero until home is reached**,
   so he cannot chain-pull a zombie across the map by re-entering its detection
   radius at the edge of the leash.
-- **DEAD** — collision layer and mask both zeroed at once (a corpse the hero
-  cannot walk past would plug a one-cell corridor for the whole fade), emits
-  `died(zombie)`, then a tween falls it over, lingers, sinks it and frees it.
+- **DEAD** — goes inert (layer and mask both zeroed), emits `died(zombie)`, then
+  a tween falls it over, lingers, sinks it and frees it. **`_physics_process`
+  returns immediately for a dead body, above the gravity block**, and that
+  ordering is load-bearing rather than tidy: clearing the mask leaves nothing to
+  stand on, so below the gravity block `is_on_floor()` is false from the frame
+  of death onward and never recovers, velocity accumulates, and the corpse
+  drives through the floor — measured at 40 units in under 3 s before this was
+  fixed. The death tween owns every remaining motion; the body itself must not
+  be simulated at all.
+
+  Note what zeroing the *layer* does not buy you: nothing masks layer 4 (see
+  the table in `scenes/CLAUDE.md`), so a zombie was never an obstacle to
+  anything, alive or dead. An earlier version of this doc and of the code
+  claimed the clear was what stopped a corpse plugging a corridor. It is not —
+  the mask is the half that changes behaviour.
 
 `take_damage()` aggroes regardless of range, sight or leash — otherwise the
 hero could whittle a zombie down from outside its detection radius.

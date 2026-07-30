@@ -1,3 +1,7 @@
+---
+depends-on: []
+---
+
 # scenes/components/
 
 Small reusable pieces that get added as child nodes of an actor, rather than

@@ -139,14 +139,21 @@ func take_damage(amount: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# A dead body is not simulated at all: the death tween owns every remaining
+	# motion, and _on_health_died() has cleared the collision mask, so there is
+	# nothing left for it to stand on. This return must stay *above* the gravity
+	# block. Below it, is_on_floor() is false from the frame of death onward and
+	# never recovers, velocity.y accumulates unbounded, and _stand_still() —
+	# which zeroes x and z but never y — drives the corpse through the floor.
+	# Measured before this fix: 1.1 units under the map after 0.5 s, 36 after
+	# 2.75 s, so the death animation was never once seen.
+	if _state == State.DEAD:
+		return
+
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 	else:
 		velocity.y = 0.0
-
-	if _state == State.DEAD:
-		_stand_still()
-		return
 
 	_attack_timer = maxf(_attack_timer - delta, 0.0)
 
@@ -325,8 +332,13 @@ func _can_see(hero: Hero) -> bool:
 func _on_health_died() -> void:
 	_state = State.DEAD
 	velocity = Vector3.ZERO
-	# Stop being an obstacle at once: a corpse the hero cannot walk past would
-	# plug a one-cell corridor for the whole fade.
+	# Go inert. Note what this does *not* do, because the original comment here
+	# claimed it and cross-review disproved it: clearing the layer does not stop
+	# the corpse blocking a corridor, because nothing masks the enemy layer in
+	# the first place (see the table in scenes/CLAUDE.md) — the hero and other
+	# zombies could always walk through it, alive or dead. Clearing the mask is
+	# the half that changes behaviour, and _physics_process must return early
+	# for the dead precisely because it does.
 	collision_layer = 0
 	collision_mask = 0
 	died.emit(self)
