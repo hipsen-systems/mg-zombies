@@ -24,6 +24,15 @@ one failing does not prevent the other from running.
   folder. It found real debt on its first run — `scenes/CLAUDE.md` was stale
   against two `scenes/map/maze.gd` commits.
 
+  **The frontmatter parser is the third thing here to hit the self-reference
+  trap.** `depends-on:` is read from line 2 to the first closing `---`, never
+  with a `/^---$/,/^---$/` range: sed restarts a range at every later match, so
+  a markdown horizontal rule further down a doc reopens it, and any prose line
+  starting `depends-on:` is then read as a real edge. A doc explaining this
+  convention would be misparsed by the parser it explains — the same shape as
+  the stamp parser taking the *last* match, and as the Flowdex hook reading its
+  own source. Assume any parser added here will hit it too.
+
   **Both graph and stamp checks must exclude nested subfolders.** A git pathspec
   of `scenes` also matches `scenes/map/` and `scenes/hero/`, so the first version
   of the graph check reported `scenes/map/CLAUDE.md` as stale against commits

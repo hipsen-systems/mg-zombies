@@ -177,8 +177,14 @@ check_verification() {
 # anything it depends on did. That is the drift nothing else catches: change the
 # navmesh settings in scenes/ and scenes/map/CLAUDE.md can silently stop being
 # true, because its own folder never moved.
+# Frontmatter body only: line 2 through the first closing `---`. NOT a
+# /^---$/,/^---$/ range — sed restarts a range at every later match, so a
+# markdown horizontal rule further down the file reopens it and any prose line
+# beginning `depends-on:` is read as a real edge. That is the self-reference
+# trap again, in a third form: a doc explaining this convention would be
+# misparsed by the parser it explains. Callers check line 1 is `---` first.
 declared_deps() {
-  sed -n '/^---$/,/^---$/p' "$1" \
+  sed -n '2,/^---$/p' "$1" \
     | sed -n 's/^depends-on:[[:space:]]*\[\(.*\)\].*/\1/p' \
     | tr ',' '\n' \
     | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
