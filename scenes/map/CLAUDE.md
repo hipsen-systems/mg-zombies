@@ -159,4 +159,4 @@ contiguous run of open cells without changing what the player sees.
   ordering is load-bearing — `LevelMap._ready()` runs before `Main._ready()`
   because Godot readies children first, so the geometry exists before the bake.
 
-<!-- verified-against: 46564b4 -->
+<!-- verified-against: a93bd80 -->
