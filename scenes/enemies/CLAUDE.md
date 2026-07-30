@@ -161,4 +161,4 @@ the hero, now that he can deal damage at all (issue #11).
 - Still a placeholder capsule. The Quaternius zombie models in
   `assets/characters/zombies/` are imported but unused, matching the hero.
 
-<!-- verified-against: 8ce7816 -->
+<!-- verified-against: fe31cbd -->
