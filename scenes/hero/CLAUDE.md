@@ -101,6 +101,20 @@ never regenerates mid-fight. It exists for issue #38: without it, clearing a
 fight at low health makes the next one unwinnable and the only remaining move
 is to die on purpose, which is a miserable way to use a checkpoint.
 
+**The gate is time only, where the zombie's is time *and* state.** That
+asymmetry is deliberate, not an oversight — cross-review raised it. A chasing
+zombie is in an ongoing fight it is losing, so healing mid-chase would undo
+damage the player already landed. A hero walking toward a target that has not
+noticed him is not in a fight at all, and the clock runs on him exactly as it
+would if he stood still for the same seconds. Note this is reachable today, not
+just in theory: an attack order has no range limit, so a long approach across
+the map easily outlasts `regen_delay`.
+
+What would change the answer is a stat that makes the *approach* part of the
+fight — a ranged attacker, or anything that lets an enemy hurt him on the way
+in. Issue #9 should re-read this paragraph before it starts moving these
+numbers.
+
 ## Picking things out of the world
 
 - The ground ray collides only with physics layer 1, so clicking a wall moves
