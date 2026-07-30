@@ -27,6 +27,11 @@ const CELL_WALL := "#"
 const CELL_FLOOR := "."
 const CELL_START := "S"
 const CELL_BOSS := "B"
+## An ordinary floor cell that also marks where a zombie spawns (issue #7).
+## Encounters are authored in the layout for the same reason the map is: placing
+## an enemy is editing one character. The maze itself never instances enemies —
+## scenes/main.gd reads [method zombie_spawn_positions] and does that.
+const CELL_ZOMBIE := "Z"
 
 ## Physics layers, per the table in scenes/CLAUDE.md.
 const LAYER_GROUND := 1
@@ -55,29 +60,34 @@ const EDGES := [
 ## with ~0.2 to spare, but nothing steers them apart — avoidance_enabled is off
 ## and no code sets it — so in practice they queue. Chokepoints are the default,
 ## not the exception; encounter design should assume a queue, not a brawl.
+##
+## Zombie spawns (`Z`) are kept well clear of the start cell: a zombie inside
+## its own detection radius of `S` would charge the hero the moment the run
+## begins, before the player has taken a single step.
 @export var layout: PackedStringArray = PackedStringArray([
 	"###############",
 	"#####.....#####",
 	"#####.....#####",
-	"#####..B..#####",
+	"#####..B.Z#####",
 	"#####.....#####",
 	"#######.#######",
-	"#.....#.#.....#",
+	"#...Z.#.#..Z..#",
 	"#.###.#.#.###.#",
 	"#.#...#.#...#.#",
 	"#.#.###.###.#.#",
-	"#.#.#.......#.#",
+	"#.#.#...Z...#.#",
 	"#.#.#.#####.#.#",
-	"#...#.#...#...#",
+	"#...#.#...#.Z.#",
 	"###.#.#.#.#.###",
 	"#.....#.#.#...#",
-	"#.#####.#.###.#",
+	"#.#####.#.###Z#",
 	"#..S....#.....#",
 	"###############",
 ])
 
 var _start_cell := Vector2i(-1, -1)
 var _boss_cell := Vector2i(-1, -1)
+var _zombie_cells: Array[Vector2i] = []
 var _rock_material_cache: StandardMaterial3D = null
 
 
@@ -95,6 +105,15 @@ func boss_position() -> Vector3:
 	return _cell_to_world(_boss_cell)
 
 
+## Floor-level world positions of every `Z` cell, in layout order. Whoever
+## instances the enemies decides what to put there; the maze only says where.
+func zombie_spawn_positions() -> Array[Vector3]:
+	var positions: Array[Vector3] = []
+	for cell in _zombie_cells:
+		positions.append(_cell_to_world(cell))
+	return positions
+
+
 ## Rebuild the maze from [member layout]. Safe to call again after editing it.
 func build() -> void:
 	for child in get_children():
@@ -102,6 +121,7 @@ func build() -> void:
 		child.queue_free()
 	_start_cell = Vector2i(-1, -1)
 	_boss_cell = Vector2i(-1, -1)
+	_zombie_cells.clear()
 
 	if not _validate_layout():
 		return
@@ -117,6 +137,8 @@ func build() -> void:
 				_start_cell = cell
 			elif kind == CELL_BOSS:
 				_boss_cell = cell
+			elif kind == CELL_ZOMBIE:
+				_zombie_cells.append(cell)
 			_build_open_cell(cell, kind)
 
 	if not _boss_is_reachable():

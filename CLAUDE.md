@@ -28,6 +28,8 @@ fails CI until it is listed here.
 |--------|------------------|
 | [`scenes/`](scenes/CLAUDE.md) | Top-level scenes, game startup order, RTS camera |
 | [`scenes/hero/`](scenes/hero/CLAUDE.md) | The player-controlled hero and its move controller |
+| [`scenes/enemies/`](scenes/enemies/CLAUDE.md) | Hostile actors — currently the basic zombie AI |
+| [`scenes/components/`](scenes/components/CLAUDE.md) | Reusable actor parts added as child nodes (`Health`) |
 | [`scenes/map/`](scenes/map/CLAUDE.md) | The maze map and its generation |
 | [`assets/`](assets/CLAUDE.md) | Third-party CC0 art and the licence record |
 

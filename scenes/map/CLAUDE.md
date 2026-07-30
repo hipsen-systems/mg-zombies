@@ -21,9 +21,15 @@ The map is the `layout` export: one character per cell, north is row 0.
 | `.`  | corridor / room floor |
 | `S`  | start cell (hero spawns here) — exactly one |
 | `B`  | boss room centre — exactly one |
+| `Z`  | ordinary floor that also marks a zombie spawn — any number |
 
 Rows must all be the same length. `build()` refuses to build a malformed
 layout and `push_error`s instead of half-building one.
+
+Encounters are authored the same way the map is: placing an enemy is editing
+one character. Keep `Z` cells well clear of `S` — a zombie within its own
+detection radius (12 units = 3 cells) of the start charges the hero before the
+player has taken a step.
 
 Cells are `CELL_SIZE` = 4 units, matching the KayKit dungeon grid: `wall` is
 4×4×1 and `floor_tile_large` is 4×4. Corridors are one cell wide, which leaves
@@ -51,7 +57,13 @@ a hopeless one, and why this paragraph must be re-checked if it is ever enabled.
 - **Rock caps** — see the gotcha below.
 - **Zone markers** — flat emissive plates (green start, red boss). Plain
   `MeshInstance3D`, no collision.
-- Public API: `start_position()`, `boss_position()`, and the `built` signal.
+- Public API: `start_position()`, `boss_position()`,
+  `zombie_spawn_positions()`, and the `built` signal.
+
+**The maze never instances enemies.** It only says where an encounter is;
+`scenes/main.gd` reads `zombie_spawn_positions()` and decides what stands
+there. That keeps the map pure geometry and lets enemy scenes change without
+touching it.
 
 Everything with collision is a `StaticBody3D` whose `BoxShape3D` is derived
 from the piece's own mesh AABB, so swapping a piece's art keeps its collider
@@ -87,8 +99,9 @@ ever gets collided with.
 
 - Art: `assets/dungeon/` (`wall`, `floor_tile_large`, `floor_dirt_large`).
 - Instanced by `scenes/main.tscn` under `NavigationRegion3D`; `scenes/main.gd`
-  reads `start_position()` to place the hero and then bakes the navmesh. The
+  reads `start_position()` to place the hero, bakes the navmesh, and then reads
+  `zombie_spawn_positions()` to populate the map with `scenes/enemies/`. The
   ordering is load-bearing — `Maze._ready()` runs before `Main._ready()`
   because Godot readies children first, so the geometry exists before the bake.
 
-<!-- verified-against: 4a272d6 -->
+<!-- verified-against: 8a4044b -->
