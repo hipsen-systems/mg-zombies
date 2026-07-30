@@ -330,7 +330,7 @@ func _reassess() -> void:
 				return
 			# Repath only while out of reach. Repathing inside attack range
 			# would fight the "stand still and swing" branch every tick.
-			if global_position.distance_to(_target.global_position) > attack_range:
+			if _horizontal_distance_to(_target.global_position) > attack_range:
 				_nav_agent.target_position = _on_navmesh(_target.global_position)
 
 		Order.MOVE:
@@ -444,6 +444,18 @@ func _travel(delta: float, speed: float) -> void:
 	velocity.z = direction.z * speed
 	move_and_slide()
 	_face(direction, delta)
+
+
+## Every range test in this script measures horizontally, and they must all
+## agree. `_reassess()` decides whether to repath and `_process_attack()`
+## decides whether to swing, both against `attack_range`; if one of them counted
+## the height difference and the other did not, they would disagree at the
+## boundary and the hero would repath and swing in alternate ticks. Flat floors
+## hide that today — the first ramp or ledge would not.
+func _horizontal_distance_to(point: Vector3) -> float:
+	var offset := point - global_position
+	offset.y = 0.0
+	return offset.length()
 
 
 ## Hold position but keep stepping the body, so gravity still settles it.

@@ -76,8 +76,10 @@ flashes the body (see the gotcha below) and resets the regen timer.
 
 ## Regeneration
 
-`regen_delay` (6 s) then `regen_per_second` (3.0) — a 30 HP zombie is whole
-again ten seconds after the last hit lands.
+`regen_delay` (6 s) with no damage taken, then `regen_per_second` (3.0) until
+full. A 30 HP zombie is therefore whole again about ten seconds after a single
+hero swing, but nearer sixteen if it was left on the brink — the delay dominates
+only for light damage.
 
 Two conditions gate it, and they close different escapes:
 

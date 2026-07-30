@@ -125,6 +125,15 @@ is to die on purpose, which is a miserable way to use a checkpoint.
   contract, which is why `scenes/enemies` is declared in the frontmatter above.
   A missing edge would be invisible; renaming the group would break the hero
   with nothing to catch it.
+- **Every range test measures horizontally**, through one helper, so the repath
+  check and the swing check cannot disagree at the boundary — a hero that
+  counted the height difference in one and not the other would repath and swing
+  on alternate ticks. The floor is flat today, so nothing would show it; the
+  first ramp would.
+- **The attack-targeting ray is a new consumer of physics layer 4**, which no
+  *body* masks. See the table in `scenes/CLAUDE.md`: a query mask and a body's
+  `collision_mask` answer different questions, and only the first one applies
+  here.
 - **A target that finishes its path while still out of reach is not dropped.**
   The hero stands and faces it instead. Giving up would re-acquire the same
   target on the next tick and flap; the player can always issue another order.

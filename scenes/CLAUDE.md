@@ -90,10 +90,20 @@ inspector reads properly.
 
 | Layer | Used for | Who is on it | Who masks it |
 |-------|----------|--------------|--------------|
-| 1     | Ground/floor (click-to-move rays collide with this only) | floor tiles | hero, zombies |
+| 1     | Ground/floor (ground-click rays collide with this only) | floor tiles | hero, zombies |
 | 2     | Walls & static obstacles (also what the zombie line-of-sight ray tests) | wall pieces | hero, zombies |
 | 3     | Hero | hero | zombies |
-| 4     | Enemies | zombies | *nobody* |
+| 4     | Enemies (also what the hero's attack-targeting ray tests) | zombies | *nobody* |
+
+**"Who masks it" is about bodies, not queries.** A `collision_mask` decides what
+a body is stopped by; a ray query carries its own mask and is stopped by
+nothing. Three of the four layers now have a ray consumer and no body masking
+them for that purpose, so the two columns answer different questions — read
+`nobody` in the last row as "nothing is *blocked* by enemies", which is what the
+paragraph below depends on. Ray consumers belong in the "Used for" column, and
+adding one is a change to this table even though no mask moved. That distinction
+is what a cross-review of PR #41 caught: the hero gained an attack-targeting ray
+against layer 4 while this row still read as though nothing touched it.
 
 The asymmetry in the last two rows is intentional: zombies are blocked by the
 hero, the hero is not blocked by zombies, and zombies do not collide with each
