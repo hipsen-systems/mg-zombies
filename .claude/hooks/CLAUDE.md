@@ -1,3 +1,7 @@
+---
+depends-on: []
+---
+
 # .claude/hooks
 
 Stop hooks that enforce two of this project's documentation rules. Both are
@@ -5,13 +9,27 @@ wired up in `../settings.json` and run on every session stop, independently —
 one failing does not prevent the other from running.
 
 - `check-folder-docs.sh` — enforces the documentation rules from the root
-  `CLAUDE.md`, in three layers: **same-change** (code changed in a folder =>
+  `CLAUDE.md`, in four layers: **same-change** (code changed in a folder =>
   that folder's doc changed too), **code map** (every code folder is linked from
-  the root's map, and every entry resolves), and **verification** (every folder
+  the root's map, and every entry resolves), **verification** (every folder
   doc carries a `verified-against: <sha>` stamp, and its folder has not changed
-  since without the doc being touched). Runs here as a Stop hook, in CI on every
+  since without the doc being touched), and **dependency graph** (each doc's
+  `depends-on:` frontmatter resolves, and no doc is left unread after code it
+  depends on moved). Runs here as a Stop hook, in CI on every
   PR via `--diff <range>`, and on push to `main` via `--audit` — the PR gate
   only sees one range, so it cannot see drift arriving another way.
+
+  The first three all examine a folder in isolation, which is why the fourth
+  exists: it is the only one that can see a doc invalidated from outside its own
+  folder. It found real debt on its first run — `scenes/CLAUDE.md` was stale
+  against two `scenes/map/maze.gd` commits.
+
+  **Both graph and stamp checks must exclude nested subfolders.** A git pathspec
+  of `scenes` also matches `scenes/map/` and `scenes/hero/`, so the first version
+  of the graph check reported `scenes/map/CLAUDE.md` as stale against commits
+  that had only touched `scenes/map/` itself. `direct_code_commits` filters to
+  direct children, matching the boundary the verification check already drew —
+  keep them in step if either is edited.
 
   `--audit` runs the history checks alone against any checkout, and is the
   one-command answer to "are these docs still trustworthy?".

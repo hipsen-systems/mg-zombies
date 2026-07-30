@@ -1,3 +1,7 @@
+---
+depends-on: []
+---
+
 # assets/
 
 Third-party CC0 3D assets, trimmed to what the game actually uses. Provenance and licensing for every file: `LICENSES.md` (update it with every addition — reviewers should reject asset PRs that don't).
