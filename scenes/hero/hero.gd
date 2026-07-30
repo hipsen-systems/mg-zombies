@@ -72,6 +72,15 @@ const GROUND_MASK := 1
 const ENEMY_MASK := 8
 const RAY_LENGTH := 1000.0
 
+## Walls and static obstacles (physics layer 2) — the same blocker mask
+## scenes/enemies/ tests its own line of sight against.
+const SIGHT_BLOCKER_MASK := 2
+
+## Roughly chest height on the 1.8-unit capsule. Matches the zombie's so both
+## sight rays agree about what "can see" means; a mismatch would let one side
+## see through cover the other treats as solid.
+const EYE_HEIGHT := 1.2
+
 const ENEMY_GROUP := "enemies"
 
 ## How far from the clicked ground point an enemy still counts as clicked.
@@ -320,7 +329,7 @@ func _reassess() -> void:
 		# _finish_engagement()'s job: an attack-move keeps its destination and
 		# carries on, an idle hero simply stands down again.
 		Order.IDLE, Order.ATTACK_MOVE:
-			var found := _nearest_enemy_to(global_position, acquire_radius)
+			var found := _nearest_enemy_to(global_position, acquire_radius, true)
 			if found != null:
 				_engage(found)
 
@@ -370,9 +379,12 @@ func _process_attack(delta: float) -> void:
 		_halt()
 		return
 
+	# `to_target` is the facing direction only. The range test goes through the
+	# shared helper, so this check and the repath check in _reassess() are one
+	# code path rather than two that happen to agree today.
 	var to_target := _target.global_position - global_position
 	to_target.y = 0.0
-	if to_target.length() > attack_range:
+	if _horizontal_distance_to(_target.global_position) > attack_range:
 		if _nav_agent.is_navigation_finished():
 			# The path says we arrived and the target is still out of reach, so
 			# it is not reachable from here — the navmesh clamp put its goal
@@ -532,7 +544,13 @@ func _target_at(screen_point: Vector2, ground_point) -> Node3D:
 
 ## Nearest living enemy to a point, measured horizontally so a unit's height
 ## never decides which of two is closer. Returns null if none is within range.
-func _nearest_enemy_to(point: Vector3, radius: float) -> Node3D:
+##
+## `require_sight` is true only for automatic acquisition, and it is measured
+## from the hero rather than from `point` — the two are the same thing there.
+## The click paths pass false on purpose: the player can only click something
+## already drawn on screen, so demanding a second opinion from a raycast would
+## only reject clicks the player could plainly see were valid.
+func _nearest_enemy_to(point: Vector3, radius: float, require_sight := false) -> Node3D:
 	var best: Node3D = null
 	var best_distance := radius
 	for candidate in get_tree().get_nodes_in_group(ENEMY_GROUP):
@@ -542,10 +560,29 @@ func _nearest_enemy_to(point: Vector3, radius: float) -> Node3D:
 		var offset := enemy.global_position - point
 		offset.y = 0.0
 		var distance := offset.length()
-		if distance <= best_distance:
-			best = enemy
-			best_distance = distance
+		if distance > best_distance:
+			continue
+		# Sight last: it is a raycast, and the cheap distance test has already
+		# thrown out most of the group by the time we get here.
+		if require_sight and not _can_see(enemy):
+			continue
+		best = enemy
+		best_distance = distance
 	return best
+
+
+## Chest-to-chest ray against walls only, mirroring the zombie's.
+##
+## Without it the hero picks up targets through solid rock and walks off to
+## fight something the player never saw — the same complaint scenes/enemies/
+## records in reverse ("zombies detect the hero through solid rock, then appear
+## round a corner for no visible reason"), and worse here, because this is the
+## unit the player is supposed to be commanding.
+func _can_see(target: Node3D) -> bool:
+	var from := global_position + Vector3.UP * EYE_HEIGHT
+	var to := target.global_position + Vector3.UP * EYE_HEIGHT
+	var query := PhysicsRayQueryParameters3D.create(from, to, SIGHT_BLOCKER_MASK)
+	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
 
 
 ## Everything this script assumes about an enemy, in one place: it is a live

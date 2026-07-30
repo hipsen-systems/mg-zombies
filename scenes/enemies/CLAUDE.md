@@ -107,7 +107,10 @@ the hero, now that he can deal damage at all (issue #11).
   middle of the maze. Don't remove the await.
 - **Line of sight is a chest-to-chest ray against layer 2 only** (walls). Drop
   it and zombies detect the hero through solid rock, then appear round a corner
-  for no visible reason.
+  for no visible reason. `scenes/hero/` now casts the mirror image of this ray
+  for his own automatic acquisition, at the same eye height on purpose — if the
+  two heights ever diverge, one side sees through cover the other treats as
+  solid, and a fight starts that only one participant can explain.
 - **Wander targets are clamped with `NavigationServer3D.map_get_closest_point`**,
   the same way every `Hero` order clamps its destination — a random point that lands
   inside rock becomes the nearest reachable spot instead of a path request that

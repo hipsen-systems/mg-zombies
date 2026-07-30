@@ -62,6 +62,17 @@ answer is a decision:
   need for a separate retaliate-when-hit rule — nothing can reach him from
   outside `acquire_radius` in the first place.
 
+**Automatic acquisition requires line of sight; clicking does not.** Both are
+deliberate and they are not the same question. A raycast against walls stops the
+hero picking up a target through solid rock and walking off to fight something
+the player never saw — the complaint `scenes/enemies/` records in reverse, and
+worse here, because this is the unit the player is meant to be commanding. The
+click paths skip the check because the player can only click what is already
+drawn on screen; a second opinion from a raycast could only reject clicks that
+were visibly valid. Note the consequence that *is* kept: once a target is
+acquired in sight, the hero will pursue it around a corner. That is ordinary RTS
+behaviour and the player can always issue another order.
+
 Acquisition and repathing run on a 0.2 s tick (`RETARGET_INTERVAL`), matching
 the sensing budget in `scenes/enemies/`. Only the cooldown, gravity and
 movement need per-frame precision.
@@ -125,15 +136,18 @@ is to die on purpose, which is a miserable way to use a checkpoint.
   contract, which is why `scenes/enemies` is declared in the frontmatter above.
   A missing edge would be invisible; renaming the group would break the hero
   with nothing to catch it.
-- **Every range test measures horizontally**, through one helper, so the repath
-  check and the swing check cannot disagree at the boundary — a hero that
-  counted the height difference in one and not the other would repath and swing
-  on alternate ticks. The floor is flat today, so nothing would show it; the
-  first ramp would.
-- **The attack-targeting ray is a new consumer of physics layer 4**, which no
-  *body* masks. See the table in `scenes/CLAUDE.md`: a query mask and a body's
-  `collision_mask` answer different questions, and only the first one applies
-  here.
+- **Every range test measures horizontally, through `_horizontal_distance_to`.**
+  Both the repath check and the swing check call it, so they are one code path
+  and cannot disagree at the boundary — a hero counting the height difference in
+  one and not the other would repath and swing on alternate ticks. The floor is
+  flat today, so nothing would show it; the first ramp would. Cross-review
+  caught the first attempt at this: the two computations *matched* but were
+  written twice, so the guarantee this doc claimed did not actually exist. If
+  you add a third range test, route it through the helper too.
+- **The hero uses two ray masks of his own**, and both are new consumers of
+  layers no *body* of his masks: layer 4 for attack targeting and layer 2 for
+  line of sight. See the table in `scenes/CLAUDE.md` — a query mask and a body's
+  `collision_mask` answer different questions, and only the first applies here.
 - **A target that finishes its path while still out of reach is not dropped.**
   The hero stands and faces it instead. Giving up would re-acquire the same
   target on the next tick and flap; the player can always issue another order.
