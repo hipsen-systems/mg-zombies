@@ -115,9 +115,9 @@ The team keeps a shared, AI-readable wiki in Flowdex, project slug **`mg-zombies
 
 - **A folder owns a fact → that folder's `CLAUDE.md` owns it.** Everything listed under `Contents:` in "Per-folder context docs" below.
 - **This root file owns a fact → it owns it.** Its own opening list — design intent, team workflow, tooling, conventions — and the sections that build on them, including game design, builds and releases, and the asset policy.
-- **Nothing in the repo owns it → Flowdex owns it.** Cross-cutting contracts that span folders (physics layers, navigation, scene startup order), *cross-system design rationale* — why a constraint in one folder binds work in another — and project state. These have nowhere in the repo to live, which is exactly why the wiki exists.
+- **Nothing in the repo *can* own it → Flowdex owns it.** Project state (what is merged, what is in flight, what comes next), the history behind a decision including what was tried and rejected, and the map of how the systems relate — what you read *before* you know which folder to open. None of these describe a folder, which is why no folder can hold them.
 
-Watch the boundary between the last two: the game's **design intent** (the core loop, progression, the skill tree) is owned here, in `## Game design`. What the wiki owns is the *rationale that spans systems* — why the map's corridor width constrains encounter design, not what the encounters should be.
+**The trap, and it is the whole difficulty of this rule: "several folders depend on it" is not "no folder owns it."** Ownership is assigned, not discovered, so almost any fact *can* be given a home — which means the test only works if you default to the repo and move something to the wiki reluctantly. Physics layers is the worked example of getting this right: `scenes/` owns the table because the convention was established there, and `scenes/map/` and `scenes/hero/` link to it rather than restating it. A contract half the codebase depends on still gets exactly one owner, in the repo.
 
 A Flowdex page about something the repo already owns is therefore a *stub*: what the thing is, what constraint it imposes on everyone else, where the detail lives, and its links. Nothing more.
 
