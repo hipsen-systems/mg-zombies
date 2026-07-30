@@ -125,4 +125,4 @@ files (it doesn't load the global class cache), so it reports a false
 "Could not find type" on scripts that reference `Hero`, `Maze`, or
 `RTSCamera`. Run the scene instead to check those.
 
-<!-- verified-against: 8a4044b -->
+<!-- verified-against: 46564b4 -->

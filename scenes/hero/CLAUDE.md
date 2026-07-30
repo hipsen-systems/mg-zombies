@@ -154,4 +154,4 @@ is to die on purpose, which is a miserable way to use a checkpoint.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: 8a4044b -->
+<!-- verified-against: 46564b4 -->
