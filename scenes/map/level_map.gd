@@ -1,11 +1,16 @@
-class_name Maze
+class_name LevelMap
 extends Node3D
-## Grid-driven maze builder (issue #6).
+## Grid-driven level builder (issues #6, #37).
 ##
 ## The map is authored as ASCII in [member layout] — one character per 4×4
 ## cell — and turned into KayKit dungeon geometry at runtime. Authoring a map
 ## is therefore editing a text block, not placing hundreds of nodes by hand,
 ## and the .tscn stays tiny.
+##
+## Openness is a property of the layout, not of this builder: walls are only
+## raised on the rock/floor boundary, so a 12-cell-wide clearing costs the same
+## code as a one-cell corridor. That is why issue #37 replaced the maze with an
+## open level without touching the build rules.
 ##
 ## Everything this builds is a StaticBody3D with a real collision shape,
 ## because the NavigationMesh parses static colliders only (see
@@ -29,7 +34,7 @@ const CELL_START := "S"
 const CELL_BOSS := "B"
 ## An ordinary floor cell that also marks where a zombie spawns (issue #7).
 ## Encounters are authored in the layout for the same reason the map is: placing
-## an enemy is editing one character. The maze itself never instances enemies —
+## an enemy is editing one character. The map itself never instances enemies —
 ## scenes/main.gd reads [method zombie_spawn_positions] and does that.
 const CELL_ZOMBIE := "Z"
 
@@ -53,36 +58,64 @@ const EDGES := [
 
 ## The map. North is row 0. Must be rectangular; exactly one S and one B.
 ##
-## Corridors are one cell (4 units) wide, which leaves ~3 units of clear space
-## once the walls straddle the cell edges. Agents travel them single-file: the
-## navmesh bakes at agent_radius 1.0 (see the gotcha in CLAUDE.md), so the
-## walkable ribbon is only ~1 unit wide. Two 0.4-radius agents fit across that
-## with ~0.2 to spare, but nothing steers them apart — avoidance_enabled is off
-## and no code sets it — so in practice they queue. Chokepoints are the default,
-## not the exception; encounter design should assume a queue, not a brawl.
+## One route runs from `S` (bottom left) to `B` (top right), and its width is
+## the thing that varies: 10-cell clearings, a 3-cell-thick passage between
+## them, and two deliberate one-cell chokepoints. Two dead-end spurs hang off
+## the route — a chamber north of the first clearing and a vault south of the
+## second — each holding a pair of zombies and nothing else. There is no second
+## way round: every path from `S` to `B` goes through both chokepoints.
+##
+## **A one-cell chokepoint is single-file, and that is now a choice per
+## location rather than a property of the whole map.** The navmesh bakes at
+## agent_radius 1.0 (see the gotcha in CLAUDE.md), so the walkable ribbon
+## through a one-cell gap is only ~1 unit wide. Two 0.4-radius agents fit across
+## it with ~0.2 to spare, but nothing steers them apart — avoidance_enabled is
+## off and no code sets it — so in practice they queue. Put a chokepoint where a
+## queue is the encounter you want; a clearing is where units can spread out.
 ##
 ## Zombie spawns (`Z`) are kept well clear of the start cell: a zombie inside
-## its own detection radius of `S` would charge the hero the moment the run
-## begins, before the player has taken a single step.
+## its own detection radius (12 units = 3 cells) of `S` would charge the hero
+## the moment the run begins, before the player has taken a single step. The
+## nearest one here is 7 cells away.
 @export var layout: PackedStringArray = PackedStringArray([
-	"###############",
-	"#####.....#####",
-	"#####.....#####",
-	"#####..B.Z#####",
-	"#####.....#####",
-	"#######.#######",
-	"#...Z.#.#..Z..#",
-	"#.###.#.#.###.#",
-	"#.#...#.#...#.#",
-	"#.#.###.###.#.#",
-	"#.#.#...Z...#.#",
-	"#.#.#.#####.#.#",
-	"#...#.#...#.Z.#",
-	"###.#.#.#.#.###",
-	"#.....#.#.#...#",
-	"#.#####.#.###Z#",
-	"#..S....#.....#",
-	"###############",
+	"############################################",
+	"############################################",
+	"########################...............#####",
+	"######################...................###",
+	"#####################....................###",
+	"#####################...Z.................##",
+	"####################..........B...........##",
+	"####################..................Z...##",
+	"#####################.....................##",
+	"#####################....................###",
+	"######################........Z.........####",
+	"########################..............######",
+	"############################......##########",
+	"#############################....###########",
+	"#####.....####################..############",
+	"####.Z...Z.#################..Z..###########",
+	"####.......################......###########",
+	"######..##################.....#############",
+	"######...#################..Z..#############",
+	"######...#################.........#########",
+	"####........#############..............#####",
+	"###...........##########......Z.........####",
+	"##...Z.........#########.................###",
+	"##..........Z..#########..Z..............###",
+	"##...................###..................##",
+	"##...............Z.......Z................##",
+	"##..Z................###.............Z....##",
+	"###..........###########........Z........###",
+	"####...Z...##############...............####",
+	"######.####################..........#######",
+	"######.########################...##########",
+	"####......#####################..###########",
+	"###........##################........#######",
+	"##..........#################..Z..Z..#######",
+	"##....S.....##################......########",
+	"###........#################################",
+	"####......##################################",
+	"############################################",
 ])
 
 var _start_cell := Vector2i(-1, -1)
@@ -106,7 +139,7 @@ func boss_position() -> Vector3:
 
 
 ## Floor-level world positions of every `Z` cell, in layout order. Whoever
-## instances the enemies decides what to put there; the maze only says where.
+## instances the enemies decides what to put there; the map only says where.
 func zombie_spawn_positions() -> Array[Vector3]:
 	var positions: Array[Vector3] = []
 	for cell in _zombie_cells:
@@ -114,7 +147,7 @@ func zombie_spawn_positions() -> Array[Vector3]:
 	return positions
 
 
-## Rebuild the maze from [member layout]. Safe to call again after editing it.
+## Rebuild the level from [member layout]. Safe to call again after editing it.
 func build() -> void:
 	for child in get_children():
 		remove_child(child)
@@ -143,7 +176,7 @@ func build() -> void:
 
 	if not _boss_is_reachable():
 		push_error(
-			"Maze: the boss cell is walled off from the start cell. " +
+			"LevelMap: the boss cell is walled off from the start cell. " +
 			"Fix `layout` — the map is unplayable as authored."
 		)
 	built.emit()
@@ -151,12 +184,12 @@ func build() -> void:
 
 func _validate_layout() -> bool:
 	if layout.is_empty():
-		push_error("Maze: `layout` is empty.")
+		push_error("LevelMap: `layout` is empty.")
 		return false
 	var width := layout[0].length()
 	for row in layout.size():
 		if layout[row].length() != width:
-			push_error("Maze: row %d is %d cells wide, expected %d." % [
+			push_error("LevelMap: row %d is %d cells wide, expected %d." % [
 				row, layout[row].length(), width,
 			])
 			return false
@@ -166,7 +199,7 @@ func _validate_layout() -> bool:
 		starts += row.count(CELL_START)
 		bosses += row.count(CELL_BOSS)
 	if starts != 1 or bosses != 1:
-		push_error("Maze: expected exactly one '%s' and one '%s', found %d and %d." % [
+		push_error("LevelMap: expected exactly one '%s' and one '%s', found %d and %d." % [
 			CELL_START, CELL_BOSS, starts, bosses,
 		])
 		return false

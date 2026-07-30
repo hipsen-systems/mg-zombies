@@ -31,7 +31,7 @@ near the boundary, and you could shake it by stepping back one metre.
 
 `leash_radius` is home-relative where `aggro_radius` is hero-relative, so they
 are not redundant: without the leash the hero could tow a zombie across the
-whole maze by staying just inside aggro range, and encounters would drift away
+whole level by staying just inside aggro range, and encounters would drift away
 from where the map author placed them.
 
 ## States
@@ -96,7 +96,7 @@ the hero, now that he can deal damage at all (issue #11).
 
 - **Sensing is throttled** to one tick per `SENSE_INTERVAL` (0.2 s), and the
   first tick is randomly offset per zombie in `_ready()`. A shambling zombie
-  does not need 60 Hz reflexes, the cost stays flat as the maze fills up, and
+  does not need 60 Hz reflexes, the cost stays flat as the level fills up, and
   the offset stops a room full of them moving in lockstep. Anything that needs
   per-frame precision (the attack cooldown, gravity, movement) is in
   `_physics_process`, not `_think()`.
@@ -104,13 +104,20 @@ the hero, now that he can deal damage at all (issue #11).
   `NavigationServer3D` syncs its maps at the end of a physics frame and
   `scenes/main.gd` bakes the navmesh in its own `_ready()`; querying before that
   sync returns the map origin, which would send every zombie walking to the
-  middle of the maze. Don't remove the await.
+  middle of the level. Don't remove the await.
 - **Line of sight is a chest-to-chest ray against layer 2 only** (walls). Drop
   it and zombies detect the hero through solid rock, then appear round a corner
   for no visible reason. `scenes/hero/` now casts the mirror image of this ray
   for his own automatic acquisition, at the same eye height on purpose — if the
   two heights ever diverge, one side sees through cover the other treats as
   solid, and a fight starts that only one participant can explain.
+- **The open level (issue #37) made the sight gate do much less work.** In the
+  maze, walls broke sight constantly and delivered zombies one or two at a time
+  whatever the layout said. In a clearing nothing blocks the ray, so every
+  zombie within `detection_radius` notices the hero in the same tick and arrives
+  together. None of the radii changed — the geometry did. Group size is now a
+  property of where the map author puts a `Z`, which is the tuning knob to reach
+  for first; see `scenes/map/CLAUDE.md`.
 - **Wander targets are clamped with `NavigationServer3D.map_get_closest_point`**,
   the same way every `Hero` order clamps its destination — a random point that lands
   inside rock becomes the nearest reachable spot instead of a path request that
@@ -130,8 +137,10 @@ the hero, now that he can deal damage at all (issue #11).
   blocked by the world and by the hero, but the hero (mask 1|2) is never blocked
   by them. Zombies that collide jam solid in a one-cell corridor, and a hero who
   can be body-blocked wedges exactly the way `scenes/map/CLAUDE.md` describes.
-  The trade is that a pack overlaps visually; revisit with agent avoidance when
-  it starts to look wrong.
+  The trade is that a pack overlaps visually — and the open level made that
+  worse, because a group converging across a clearing has room to bunch where a
+  corridor used to string it out. Revisit with agent avoidance when it starts to
+  look wrong.
 
 ## Dependencies / signals
 
@@ -146,10 +155,10 @@ the hero, now that he can deal damage at all (issue #11).
 - Emits `died(zombie)`. Nothing consumes it yet — it is the hook for XP
   (issue #8). Note the hero emits its own `killed(victim)` from the swing that
   lands the blow, which is the *attributed* version of the same moment.
-- Spawned by `scenes/main.gd` at the `Z` cells of `scenes/map/maze.gd`; the
+- Spawned by `scenes/main.gd` at the `Z` cells of `scenes/map/level_map.gd`; the
   spawner sets `position` *before* `add_child`, because `_ready()` captures
   `global_position` as home.
 - Still a placeholder capsule. The Quaternius zombie models in
   `assets/characters/zombies/` are imported but unused, matching the hero.
 
-<!-- verified-against: 0fc132f -->
+<!-- verified-against: 8ce7816 -->

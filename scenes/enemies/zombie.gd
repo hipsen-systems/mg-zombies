@@ -44,7 +44,7 @@ enum State {
 
 ## Senses (distance checks and the line-of-sight ray) run on a fixed tick rather
 ## than every frame — a shambling zombie does not need 60 Hz reflexes, and this
-## keeps the cost flat as the maze fills up with them.
+## keeps the cost flat as the level fills up with them.
 const SENSE_INTERVAL := 0.2
 
 ## Roughly chest height on the 1.8-unit capsule; the line-of-sight ray is cast
@@ -131,7 +131,7 @@ func _ready() -> void:
 	# NavigationServer3D syncs its maps at the end of a physics frame, and
 	# scenes/main.gd bakes the navmesh in its own _ready(). Querying before that
 	# sync returns the map origin, which would send every zombie walking to the
-	# middle of the maze. Wait one frame before the first path request.
+	# middle of the level. Wait one frame before the first path request.
 	await get_tree().physics_frame
 	if not is_inside_tree():
 		return

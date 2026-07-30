@@ -11,7 +11,7 @@ Third-party CC0 3D assets, trimmed to what the game actually uses. Provenance an
 - `characters/hero/Knight.glb` — the hero model (KayKit Adventurers). Self-contained GLB, textures embedded, rigged for KayKit's `Rig_Medium` skeleton. We use one character only — every hero starts identical by design (see root CLAUDE.md, skill tree).
 - `characters/animations/Rig_Medium_General.glb`, `Rig_Medium_MovementBasic.glb` — shared KayKit animation libraries (idle/walk/run/attacks etc.) targeting the same `Rig_Medium` skeleton as the Knight. Import these and retarget/reuse their `AnimationLibrary` on the hero rather than authoring locomotion animations by hand.
 - `characters/zombies/Zombie.fbx`, `ZombieSmooth.fbx` — the two Quaternius zombie models, animations included in the FBX. Flat/atlas materials, no external texture files (the two are shading variants of the same zombie; sizes differ slightly).
-- `dungeon/` — KayKit Dungeon Pack pieces for maze building: `wall*`, `floor_tile*`/`floor_dirt_large`, `stairs`, and props (`torch*`, `barrel_large`, `crates_stacked`, `chest`, `column`). Each piece is a `.gltf` + same-named `.bin` pair; **all pieces reference the shared `dungeon_texture.png`** — keep the pair together and never delete/rename the texture without checking every `.gltf`.
+- `dungeon/` — KayKit Dungeon Pack pieces for level building: `wall*`, `floor_tile*`/`floor_dirt_large`, `stairs`, and props (`torch*`, `barrel_large`, `crates_stacked`, `chest`, `column`). Each piece is a `.gltf` + same-named `.bin` pair; **all pieces reference the shared `dungeon_texture.png`** — keep the pair together and never delete/rename the texture without checking every `.gltf`.
 
 ## Gotchas
 
