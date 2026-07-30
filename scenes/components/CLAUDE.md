@@ -37,4 +37,4 @@ None — plain `Node`, no scene or autoload requirements. Consumed by
 `scenes/hero/` and `scenes/enemies/`; `scenes/main.gd` connects to the hero's
 `health_changed` to drive the HUD bar.
 
-<!-- verified-against: 43748bc -->
+<!-- verified-against: 8a4044b -->
