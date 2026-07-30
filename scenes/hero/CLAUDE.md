@@ -1,9 +1,14 @@
+---
+depends-on: [scenes, assets]
+---
+
 # scenes/hero/
 
 The player-controlled hero (issue #5: movement; issue #7: taking damage and
 dying; his own attack comes in issue #11).
 
-- `hero.tscn` — `CharacterBody3D` (collision layer 3, mask 1|2) with a
+- `hero.tscn` — `CharacterBody3D` (collision layer 3, mask 1|2 — see the
+  layer table in `scenes/CLAUDE.md`) with a
   placeholder capsule + a small "nose" box marking the facing direction, a
   `CollisionShape3D`, a `NavigationAgent3D`, and a `Health` child (100 HP,
   `scenes/components/`). In the `hero` group — that is how zombies find him,

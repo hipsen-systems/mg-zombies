@@ -1,3 +1,7 @@
+---
+depends-on: [scenes, assets]
+---
+
 # scenes/map/
 
 The playable map (issue #6). Replaces the 40×40 test arena that `main.tscn`

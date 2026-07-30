@@ -67,7 +67,16 @@ Every folder that contains code (scripts, scenes) must have its own `CLAUDE.md` 
 Rules:
 - **Creating a new folder with code in it → create a `CLAUDE.md` in that folder**, and add it to the code map above.
 - **Adding or changing code in an existing folder → update that folder's `CLAUDE.md` in the same commit** if the change affects anything the doc describes (or should describe).
-- Contents: what this folder's part of the game does, the key scenes/scripts and how they relate, signals emitted/consumed, dependencies on other folders (autoloads, other systems), and any non-obvious decisions or gotchas.
+- Contents: what this folder's part of the game does, the key scenes/scripts and how they relate, signals emitted/consumed, dependencies on other folders (autoloads, other systems), the constraints this folder imposes on the rest of the project — `scenes/map/`'s single-file corridors bind encounter design — and any non-obvious decisions or gotchas.
+- **Every folder doc opens with a frontmatter block naming the folders its claims rest on**, which is the prose "Dependencies" section made machine-readable:
+
+  ```markdown
+  ---
+  depends-on: [scenes, assets]
+  ---
+  ```
+
+  Only this direction is stored. "What do I affect?" is its exact inverse, and keeping both would create two records that can disagree — see the `depends-on` graph below for what the edges are actually used for.
 - Keep them short and current — a stale doc is worse than none. Delete statements that no longer hold rather than appending corrections.
 - These folder docs are also what PR reviewers use to judge a change, so an out-of-date doc is a valid review finding.
 
@@ -92,13 +101,46 @@ code and corrected what drifted.
 ### What is enforced, and what is not
 
 `.claude/hooks/check-folder-docs.sh` runs as a Stop hook locally and in CI on
-every PR (`docs-check` workflow). It runs three checks:
+every PR (`docs-check` workflow). It runs four checks:
 
 | Check | Catches |
 |-------|---------|
 | same-change | Code changed in a folder without its doc changing; `project.godot` changed without the root doc changing |
 | code map | A code folder missing from the root's code map, or a map entry pointing at a doc that does not exist |
 | verification | A folder whose files changed since its `verified-against` stamp without the doc being touched — including history that predates these hooks, merge-conflict resolutions, and commits from anyone running without hooks |
+| dependency graph | A `depends-on` entry naming a folder with no doc, or naming itself — and the one this check exists for: a doc left unread after code it *depends on* changed |
+
+### The `depends-on` graph
+
+Every check above looks at a folder in isolation, so all of them miss the same
+thing: a doc going stale because something it *rests on* moved. Change the
+navmesh settings in `scenes/` and `scenes/map/CLAUDE.md` can quietly stop being
+true, while its own folder never changes and every check stays green.
+
+The frontmatter edges close that. When code changes directly in a folder, every
+doc declaring `depends-on` that folder is flagged until someone re-reads it and
+re-stamps. That makes blast radius a query rather than a guess: *what else must
+I read before this change is safe?* is answered by following the edges, and the
+answer is checked rather than remembered.
+
+Three limits worth knowing.
+
+**Edges are declared by hand**, so a missing one is invisible — the check
+verifies the edges you wrote, never the ones you forgot.
+
+**Nested folders are deliberately not transitive:** `scenes/` means files
+directly in `scenes/`, not everything beneath it, or every change anywhere under
+`scenes/` would flag every doc depending on it and the signal would drown.
+
+**Only upstream *code* is watched, not the upstream doc** — and that is a real
+gap, because several edges here exist to cite prose that lives in a `CLAUDE.md`
+and in no `.gd` file at all: the physics-layer table, the navmesh gotchas.
+Correcting that prose will not flag the docs citing it. Watching upstream docs
+was rejected rather than missed: edges here are mutual (`scenes/` ↔
+`scenes/map/`), and clearing a flag means bumping a stamp, which edits a doc,
+which would flag the folder at the other end — an oscillation with no fixed
+point. Until a substantive doc edit can be told apart from a stamp bump,
+prose-only drift stays a human responsibility.
 
 `bash .claude/hooks/check-folder-docs.sh --audit` runs the history checks alone,
 against any checkout.
@@ -112,6 +154,20 @@ a real finding in cross-review.
 The team keeps a shared, AI-readable wiki in Flowdex, project slug **`mg-zombies`**. It is the long-term memory the folder docs can't hold: architecture decisions and *why* they were made, gotchas, conventions, and the state of the project. Both developers' Claude sessions read and write it.
 
 **Connecting (once per developer).** Flowdex reaches Claude Code as an MCP connector on your own Claude account, authenticated with your personal `nx_live_` token. Add it in your Claude account's connector settings. The token is a secret: it belongs in that connector config only — never in this repo, a PR, or an issue. Ask the other developer for a Flowdex org invite if you don't have an account yet. Until you connect it, the hooks below no-op and everything else here still works.
+
+**What belongs here, and what belongs in a `CLAUDE.md`.** The two must never describe the same thing. A fact written in two places gets corrected in one, and the survivor is a confident lie — this is the single largest source of doc rot, and it has already happened here. The test is ownership, and it runs against *both* in-repo doc layers, not just the folder ones:
+
+- **A folder owns a fact → that folder's `CLAUDE.md` owns it.** Everything listed under `Contents:` in "Per-folder context docs" above, including the constraints it imposes on others — the folder that creates a constraint owns the statement of what it constrains, because that is where the constraint stops being true if the code changes.
+- **This root file owns a fact → it owns it.** What `## Project` promises at the top — "design intent, team workflow, tooling, and conventions" — and the sections built on it: game design, builds and releases, the asset policy.
+- **Nothing in the repo *can* own it → Flowdex owns it.** Project state (what is merged, what is in flight, what comes next), the history behind a decision including what was tried and rejected, and an index of which systems exist and what depends on what — read *before* you know which folder to open. None of these describe a folder, which is why no folder can hold them. Note the third is an *index*, not rationale: why a given constraint binds is owned by the folder that creates it, per the first bullet.
+
+**The trap, and it is the whole difficulty of this rule: "several folders depend on it" is not "no folder owns it."** Ownership is assigned, not discovered, so almost any fact *can* be given a home — which means the test only works if you default to the repo and move something to the wiki reluctantly. Physics layers is the worked example: `scenes/` owns the table because the convention was established there, and the folders that depend on it cite it rather than reproducing it. A contract half the codebase depends on still gets exactly one owner, in the repo. Note what a folder may still state for itself — the hero's own layer and mask belong to `scenes/hero/`, because they describe the hero rather than the registry; what it must not do is restate what each layer *means*.
+
+A Flowdex page about something the repo already owns is therefore a *stub*: what the thing is, what constraint it imposes on everyone else, where the detail lives, and its links. Nothing more.
+
+**The concrete test: a page may point at a file, never restate what is inside it.** For game code that collapses to a plain ban — name the folder (`scenes/map/`), never `maze.gd`, `command_move_to()`, or `agent_radius = 1.0`. Pages about repo infrastructure may name the specific workflow or hook file, since "the build check" is unusable without it, but they still record what it *guarantees*, never how it is written. Issue and PR numbers are project state, not code facts, and stay welcome.
+
+The rule scales in the right direction: as the codebase grows, more concerns become cross-cutting, so the wiki grows where it is uniquely useful instead of mirroring the source tree.
 
 **Using it — the two halves.**
 - **Read before you act.** At the start of substantive work (gameplay features, architecture decisions, asset or infra changes), invoke the `nexus-knowledge-base` skill: `get_project_structure`, then `read_index` the pages relevant to the task. Reading one page is not enough. Skip it for trivial one-liners.
