@@ -13,9 +13,10 @@ one failing does not prevent the other from running.
   that folder's doc changed too), **code map** (every code folder is linked from
   the root's map, and every entry resolves), **verification** (every folder
   doc carries a `verified-against: <sha>` stamp, and its folder has not changed
-  since without the doc being touched), and **dependency graph** (each doc's
-  `depends-on:` frontmatter resolves, and no doc is left unread after code it
-  depends on moved). Runs here as a Stop hook, in CI on every
+  since without the doc being touched), and **dependency graph** (every folder
+  doc *declares* `depends-on:` — `[]` if it has none — each entry resolves, and
+  no doc is left unread after code it depends on moved). Runs here as a Stop
+  hook, in CI on every
   PR via `--diff <range>`, and on push to `main` via `--audit` — the PR gate
   only sees one range, so it cannot see drift arriving another way.
 
@@ -43,7 +44,7 @@ one failing does not prevent the other from running.
   `--audit` runs the history checks alone against any checkout, and is the
   one-command answer to "are these docs still trustworthy?".
 
-  Note the ceiling: all three verify a doc was *edited*, never that it is
+  Note the ceiling: all four verify a doc was *edited*, never that it is
   *true*. The stamp does not change that — it makes the human judgement
   explicit and attributable, so a stale stamp becomes a reviewable finding.
   Bump one only after actually reading the doc against the code.
@@ -87,4 +88,4 @@ every session's context, so it reaches transcripts the same way.
 containing the hook's own source, and another containing the tests' source,
 and requires both to be treated as sessions that did nothing.
 
-<!-- verified-against: e6ba8dc -->
+<!-- verified-against: a0a19fc -->

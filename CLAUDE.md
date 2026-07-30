@@ -99,7 +99,7 @@ code and corrected what drifted.
 ### What is enforced, and what is not
 
 `.claude/hooks/check-folder-docs.sh` runs as a Stop hook locally and in CI on
-every PR (`docs-check` workflow). It runs three checks:
+every PR (`docs-check` workflow). It runs four checks:
 
 | Check | Catches |
 |-------|---------|
@@ -121,11 +121,24 @@ re-stamps. That makes blast radius a query rather than a guess: *what else must
 I read before this change is safe?* is answered by following the edges, and the
 answer is checked rather than remembered.
 
-Two limits worth knowing. Edges are declared by hand, so a missing one is
-invisible — the check verifies the edges you wrote, never the ones you forgot.
-And nested folders are deliberately not transitive: `scenes/` means files
+Three limits worth knowing.
+
+**Edges are declared by hand**, so a missing one is invisible — the check
+verifies the edges you wrote, never the ones you forgot.
+
+**Nested folders are deliberately not transitive:** `scenes/` means files
 directly in `scenes/`, not everything beneath it, or every change anywhere under
 `scenes/` would flag every doc depending on it and the signal would drown.
+
+**Only upstream *code* is watched, not the upstream doc** — and that is a real
+gap, because several edges here exist to cite prose that lives in a `CLAUDE.md`
+and in no `.gd` file at all: the physics-layer table, the navmesh gotchas.
+Correcting that prose will not flag the docs citing it. Watching upstream docs
+was rejected rather than missed: edges here are mutual (`scenes/` ↔
+`scenes/map/`), and clearing a flag means bumping a stamp, which edits a doc,
+which would flag the folder at the other end — an oscillation with no fixed
+point. Until a substantive doc edit can be told apart from a stamp bump,
+prose-only drift stays a human responsibility.
 
 `bash .claude/hooks/check-folder-docs.sh --audit` runs the history checks alone,
 against any checkout.
