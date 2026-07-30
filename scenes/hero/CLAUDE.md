@@ -32,7 +32,10 @@ the control model the whole game is styled after. Actions are in
 | Right-click (`move_command`) | attack it | move there |
 | `A` then left-click (`attack_move` + `select_command`) | attack it | attack-move there |
 | Left-click alone (`select_command`) | *selection — issue #36* | *selection — issue #36* |
-| `Escape` (`cancel_command`) | disarms `A` | disarms `A` |
+| `A` again, or `Escape` (`cancel_command`) | disarms `A` | disarms `A` |
+
+`A` toggles rather than latching, and a right-click also disarms it, so there
+are three ways out of the armed state and none of them requires knowing which.
 
 **Left-click is deliberately never an attack.** An RTS where inspecting a unit
 also swings at it is unusable, so the button is reserved for selection even
@@ -128,9 +131,22 @@ numbers.
   (`NavigationServer3D.map_get_closest_point`), so an off-level click means
   "walk as far that way as you can". Don't reintroduce an early-out that drops
   a click.
-- **Enemies and ground are two separate ray queries, not one 1|8 mask.** A
-  single ray returns whichever surface is nearer, and the floor under a
-  zombie's feet sometimes wins.
+- **A click fires two rays, and they disagree about walls on purpose.** The
+  ground ray ignores them, so clicking a wall means the floor behind it (issue
+  #5). The enemy ray includes them, so clicking a wall never means the zombie
+  behind it. One combined query cannot hold both rules, and the floor under a
+  zombie's feet would sometimes win it anyway.
+- **The enemy ray was not always occlusion-aware, and the bug it caused is the
+  one to remember.** Masked on enemies alone it tunnelled straight through
+  rock: clicking a wall with a zombie behind it issued an *attack order* on a
+  zombie the player had never seen, and the hero walked off to fight it. Note
+  this is the mirror image of the click-slack rationale below — that one worries
+  about rejecting a visible enemy, this one silently accepted an invisible one,
+  and the doc claimed the first covered the second. Cross-review caught it.
+  It is not a general occlusion solve: rock caps carry no collider by design
+  (`scenes/map/CLAUDE.md`), so what stops the ray is the wall pieces bounding
+  the rock, which sit on every rock/floor boundary at full height. A ray
+  threading the corner gap where two meet would still get through.
 - **`CLICK_SLACK` (1.6) is a click-target grace radius.** A 0.4-radius capsule
   seen down a ~57° camera is small, and an attack order that quietly becomes a
   move order *into* a pack is the worst way to miss. If the enemy ray misses,

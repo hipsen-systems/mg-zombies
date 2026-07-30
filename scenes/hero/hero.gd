@@ -65,9 +65,12 @@ enum Order {
 }
 
 ## Ground is physics layer 1, enemies are layer 4 — see the table in
-## scenes/CLAUDE.md. The two click rays are separate queries rather than one
-## masked 1|8 query, because a single ray returns whichever surface is nearer
-## and the floor under a zombie's feet would sometimes win.
+## scenes/CLAUDE.md. A click fires two rays rather than one, because the two
+## questions want opposite tie-breaks. The ground ray must ignore walls, so
+## clicking a wall means the floor behind it (issue #5). The enemy ray must
+## respect them, so clicking a wall never means the zombie behind it. One
+## combined query cannot do both, and the floor under a zombie's feet would
+## sometimes win it anyway.
 const GROUND_MASK := 1
 const ENEMY_MASK := 8
 const RAY_LENGTH := 1000.0
@@ -523,8 +526,21 @@ func _ground_point_at(screen_point: Vector2):
 	return ground.intersects_ray(origin, direction)
 
 
-## The enemy a click means, if any: whatever the enemy ray hits, else the
-## nearest living enemy within CLICK_SLACK of where the click met the ground.
+## The enemy a click means, if any.
+##
+## **Walls are in this ray's mask, and that is the whole point of it.** With
+## enemies alone the ray tunnelled: clicking a wall with a zombie behind it
+## resolved to an attack order on a zombie the player could not see, and the
+## hero walked off to fight it. Including layer 2 makes the nearer surface win,
+## which is what the renderer decides too, so a click can only name an enemy
+## that is actually drawn.
+##
+## Not a general occlusion solve, and the reason is worth knowing: rock caps
+## carry no collider on purpose (see scenes/map/CLAUDE.md), so a ray into a rock
+## mass is stopped by the wall pieces bounding it rather than by the rock
+## itself. Those sit on every rock/floor boundary at full wall height, so a
+## descending click ray meets one on its way out — everything except a ray
+## threading the corner gap where two of them meet.
 func _target_at(screen_point: Vector2, ground_point) -> Node3D:
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:
@@ -532,11 +548,18 @@ func _target_at(screen_point: Vector2, ground_point) -> Node3D:
 	var origin := camera.project_ray_origin(screen_point)
 	var direction := camera.project_ray_normal(screen_point)
 	var query := PhysicsRayQueryParameters3D.create(
-		origin, origin + direction * RAY_LENGTH, ENEMY_MASK
+		origin, origin + direction * RAY_LENGTH, ENEMY_MASK | SIGHT_BLOCKER_MASK
 	)
 	var result := get_world_3d().direct_space_state.intersect_ray(query)
-	if result and _is_valid_target(result.collider):
-		return result.collider
+	if result:
+		if _is_valid_target(result.collider):
+			return result.collider
+		# A wall got there first, so whatever is past it is off screen. The
+		# click stays a ground order rather than becoming an attack.
+		return null
+	# The ray met neither enemy nor wall, so the click landed on open floor or
+	# past the edge of the level. Only here is the slack radius safe to apply —
+	# there is nothing between the camera and that ground to hide a zombie.
 	if ground_point == null:
 		return null
 	return _nearest_enemy_to(ground_point, CLICK_SLACK)

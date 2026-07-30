@@ -91,7 +91,7 @@ inspector reads properly.
 | Layer | Used for | Who is on it | Who masks it |
 |-------|----------|--------------|--------------|
 | 1     | Ground/floor (ground-click rays collide with this only) | floor tiles | hero, zombies |
-| 2     | Walls & static obstacles (also what the hero's and the zombie's line-of-sight rays test) | wall pieces | hero, zombies |
+| 2     | Walls & static obstacles (also tested by both line-of-sight rays and by the hero's attack-targeting click, so neither sees through rock) | wall pieces | hero, zombies |
 | 3     | Hero | hero | zombies |
 | 4     | Enemies (also what the hero's attack-targeting ray tests) | zombies | *nobody* |
 
