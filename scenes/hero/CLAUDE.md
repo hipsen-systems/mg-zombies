@@ -1,3 +1,7 @@
+---
+depends-on: [scenes, assets]
+---
+
 # scenes/hero/
 
 The player-controlled hero (issue #5: movement; combat comes in issue #11).

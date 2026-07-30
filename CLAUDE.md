@@ -66,6 +66,15 @@ Rules:
 - **Creating a new folder with code in it → create a `CLAUDE.md` in that folder**, and add it to the code map above.
 - **Adding or changing code in an existing folder → update that folder's `CLAUDE.md` in the same commit** if the change affects anything the doc describes (or should describe).
 - Contents: what this folder's part of the game does, the key scenes/scripts and how they relate, signals emitted/consumed, dependencies on other folders (autoloads, other systems), the constraints this folder imposes on the rest of the project — `scenes/map/`'s single-file corridors bind encounter design — and any non-obvious decisions or gotchas.
+- **Every folder doc opens with a frontmatter block naming the folders its claims rest on**, which is the prose "Dependencies" section made machine-readable:
+
+  ```markdown
+  ---
+  depends-on: [scenes, assets]
+  ---
+  ```
+
+  Only this direction is stored. "What do I affect?" is its exact inverse, and keeping both would create two records that can disagree — see the `depends-on` graph below for what the edges are actually used for.
 - Keep them short and current — a stale doc is worse than none. Delete statements that no longer hold rather than appending corrections.
 - These folder docs are also what PR reviewers use to judge a change, so an out-of-date doc is a valid review finding.
 
@@ -90,13 +99,46 @@ code and corrected what drifted.
 ### What is enforced, and what is not
 
 `.claude/hooks/check-folder-docs.sh` runs as a Stop hook locally and in CI on
-every PR (`docs-check` workflow). It runs three checks:
+every PR (`docs-check` workflow). It runs four checks:
 
 | Check | Catches |
 |-------|---------|
 | same-change | Code changed in a folder without its doc changing; `project.godot` changed without the root doc changing |
 | code map | A code folder missing from the root's code map, or a map entry pointing at a doc that does not exist |
 | verification | A folder whose files changed since its `verified-against` stamp without the doc being touched — including history that predates these hooks, merge-conflict resolutions, and commits from anyone running without hooks |
+| dependency graph | A `depends-on` entry naming a folder with no doc, or naming itself — and the one this check exists for: a doc left unread after code it *depends on* changed |
+
+### The `depends-on` graph
+
+Every check above looks at a folder in isolation, so all of them miss the same
+thing: a doc going stale because something it *rests on* moved. Change the
+navmesh settings in `scenes/` and `scenes/map/CLAUDE.md` can quietly stop being
+true, while its own folder never changes and every check stays green.
+
+The frontmatter edges close that. When code changes directly in a folder, every
+doc declaring `depends-on` that folder is flagged until someone re-reads it and
+re-stamps. That makes blast radius a query rather than a guess: *what else must
+I read before this change is safe?* is answered by following the edges, and the
+answer is checked rather than remembered.
+
+Three limits worth knowing.
+
+**Edges are declared by hand**, so a missing one is invisible — the check
+verifies the edges you wrote, never the ones you forgot.
+
+**Nested folders are deliberately not transitive:** `scenes/` means files
+directly in `scenes/`, not everything beneath it, or every change anywhere under
+`scenes/` would flag every doc depending on it and the signal would drown.
+
+**Only upstream *code* is watched, not the upstream doc** — and that is a real
+gap, because several edges here exist to cite prose that lives in a `CLAUDE.md`
+and in no `.gd` file at all: the physics-layer table, the navmesh gotchas.
+Correcting that prose will not flag the docs citing it. Watching upstream docs
+was rejected rather than missed: edges here are mutual (`scenes/` ↔
+`scenes/map/`), and clearing a flag means bumping a stamp, which edits a doc,
+which would flag the folder at the other end — an oscillation with no fixed
+point. Until a substantive doc edit can be told apart from a stamp bump,
+prose-only drift stays a human responsibility.
 
 `bash .claude/hooks/check-folder-docs.sh --audit` runs the history checks alone,
 against any checkout.
