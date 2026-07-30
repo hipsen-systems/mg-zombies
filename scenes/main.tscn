@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scenes/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scenes/rts_camera.gd" id="2_camera"]
 [ext_resource type="PackedScene" path="res://scenes/hero/hero.tscn" id="3_hero"]
-[ext_resource type="PackedScene" path="res://scenes/map/maze.tscn" id="4_maze"]
+[ext_resource type="PackedScene" path="res://scenes/map/level_map.tscn" id="4_level_map"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 1
@@ -31,7 +31,7 @@ shadow_enabled = true
 [node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
 navigation_mesh = SubResource("NavigationMesh_main")
 
-[node name="Maze" parent="NavigationRegion3D" instance=ExtResource("4_maze")]
+[node name="LevelMap" parent="NavigationRegion3D" instance=ExtResource("4_level_map")]
 
 [node name="Hero" parent="." instance=ExtResource("3_hero")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)

@@ -1,8 +1,8 @@
 extends Node3D
 ## Game entry scene (issues #5, #6, #7, #11).
 ##
-## Owns the order the level comes up in: the maze builds itself in its own
-## _ready() (children run first), then this script places the hero on the maze's
+## Owns the order the level comes up in: the map builds itself in its own
+## _ready() (children run first), then this script places the hero on the map's
 ## start cell, bakes the navmesh over the geometry that now exists, and only
 ## then spawns the zombies — they path on the navmesh, so it has to exist first.
 ##
@@ -19,7 +19,7 @@ const ZOMBIE_SCENE := preload("res://scenes/enemies/zombie.tscn")
 const RESTART_DELAY := 2.5
 
 @onready var _nav_region: NavigationRegion3D = $NavigationRegion3D
-@onready var _maze: Maze = $NavigationRegion3D/Maze
+@onready var _level: LevelMap = $NavigationRegion3D/LevelMap
 @onready var _hero: Hero = $Hero
 @onready var _camera: RTSCamera = $RTSCamera
 @onready var _enemies: Node3D = $Enemies
@@ -30,7 +30,7 @@ const RESTART_DELAY := 2.5
 
 
 func _ready() -> void:
-	_hero.global_position = _maze.start_position() + Vector3(0, SPAWN_CLEARANCE, 0)
+	_hero.global_position = _level.start_position() + Vector3(0, SPAWN_CLEARANCE, 0)
 	_camera.snap_to_target()
 	_nav_region.bake_navigation_mesh(false)
 	_spawn_zombies()
@@ -41,11 +41,11 @@ func _ready() -> void:
 	_on_hero_health_changed(_hero.health.current, _hero.health.max_health)
 
 
-## One zombie per `Z` cell in the maze layout. The maze says where an encounter
+## One zombie per `Z` cell in the level layout. The map says where an encounter
 ## is; deciding what stands there is this scene's job, so the map stays pure
 ## geometry and never has to know the enemy scenes exist.
 func _spawn_zombies() -> void:
-	for spawn in _maze.zombie_spawn_positions():
+	for spawn in _level.zombie_spawn_positions():
 		var zombie: Zombie = ZOMBIE_SCENE.instantiate()
 		# Position before add_child: Zombie._ready() captures where it stands as
 		# "home" — the centre of the patch it roams and the anchor of its leash.

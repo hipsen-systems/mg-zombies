@@ -7,18 +7,20 @@ depends-on: [scenes/map, scenes/hero, scenes/enemies]
 Top-level game scenes and their scripts.
 
 - `main.tscn` — the game entry scene: a `NavigationRegion3D` wrapping the
-  maze (`scenes/map/`), the instanced hero, an `Enemies` holder, lighting, the
-  RTS camera, and the `HUD` `CanvasLayer`. The 40×40 test arena that lived here
-  for issue #5 is gone; issue #6 replaced it with the real map.
+  level map (`scenes/map/`), the instanced hero, an `Enemies` holder, lighting,
+  the RTS camera, and the `HUD` `CanvasLayer`. The 40×40 test arena that lived
+  here for issue #5 is gone; issue #6 replaced it with the real map, and issue
+  #37 replaced that maze with an open single-path level.
 - `main.gd` — attached to the root. Owns the startup order, which is
   load-bearing:
-  1. the maze builds itself in its own `_ready()` (Godot readies children
+  1. the map builds itself in its own `_ready()` (Godot readies children
      first);
-  2. this script places the hero on the maze's start cell and snaps the camera;
+  2. this script places the hero on the map's start cell and snaps the camera;
   3. it bakes the navmesh over the geometry that now exists — synchronous
      (`bake_navigation_mesh(false)`) because the web export has threads
-     disabled, so don't switch it to on-thread baking;
-  4. **then** it spawns one zombie per `Z` cell of the maze. Enemies path on
+     disabled, so don't switch it to on-thread baking. On the open level this
+     costs ~55 ms at startup, up from ~12 ms on the maze;
+  4. **then** it spawns one zombie per `Z` cell of the map. Enemies path on
      the navmesh, so they must not exist before the bake.
 - **Enemy spawning** sets `position` *before* `add_child`, because
   `Zombie._ready()` captures `global_position` as the home its roam area and
@@ -77,11 +79,13 @@ preserving yet.
   `_ready()`, aims once with `look_at()`, and afterwards only translates with
   exponential smoothing. It never rotates at runtime.
 - `snap_to_target()` moves **and re-aims**. `main.gd` teleports the hero to the
-  maze start after the camera's `_ready()` has already run, so without the
+  map's start cell after the camera's `_ready()` has already run, so without the
   re-aim the camera keeps pointing at wherever the hero sat in the .tscn.
 - The offset is `(0, 22.1, 14)` → a ~57° pitch. The old `(0, 16, 24)` (~33°)
   was authored for the small arena; on the 60×72 maze that shallow angle showed
-  the map from the outside rather than the hero's corridor.
+  the map from the outside rather than the hero's surroundings. The level is now
+  176×152, which does not change the offset but does make issue #43 (the camera
+  has no level bounds, so the view runs off the edge at spawn) more visible.
 
 ## Physics layers (project convention, established here)
 
@@ -113,15 +117,15 @@ describes. See `scenes/enemies/CLAUDE.md`.
 
 ## Dependencies / signals
 
-- Instances `scenes/map/maze.tscn` and `scenes/hero/hero.tscn` from the .tscn,
-  and `scenes/enemies/zombie.tscn` at runtime; the camera's `target` export
-  points at the hero.
+- Instances `scenes/map/level_map.tscn` and `scenes/hero/hero.tscn` from the
+  .tscn, and `scenes/enemies/zombie.tscn` at runtime; the camera's `target`
+  export points at the hero.
 - **Input actions** are defined in `project.godot` and every one of them is
   consumed by `scenes/hero/`, not by anything in this folder. What each *means*
   is that folder's to document; this is only the inventory:
   `move_command` (right mouse), `select_command` (left mouse),
   `attack_move` (`A`), `cancel_command` (`Escape`).
-- `Maze` emits `built`; nothing consumes it yet.
+- `LevelMap` emits `built`; nothing consumes it yet.
 - `main.gd` consumes `Hero.died`, `Hero.health.health_changed` and
   `Hero.attack_move_armed_changed`. Unconsumed so far: `Hero.move_ordered` and
   `Hero.attack_ordered` (for the selection UI, issue #36), and both death
@@ -132,7 +136,7 @@ describes. See `scenes/enemies/CLAUDE.md`.
 
 `--headless --check-only --script` cannot resolve `class_name` types across
 files (it doesn't load the global class cache), so it reports a false
-"Could not find type" on scripts that reference `Hero`, `Maze`, or
+"Could not find type" on scripts that reference `Hero`, `LevelMap`, or
 `RTSCamera`. Run the scene instead to check those.
 
 <!-- verified-against: 0fc132f -->

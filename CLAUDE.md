@@ -36,14 +36,14 @@ fails CI until it is listed here.
 | [`scenes/hero/`](scenes/hero/CLAUDE.md) | The player-controlled hero and its move controller |
 | [`scenes/enemies/`](scenes/enemies/CLAUDE.md) | Hostile actors — currently the basic zombie AI |
 | [`scenes/components/`](scenes/components/CLAUDE.md) | Reusable actor parts added as child nodes (`Health`) |
-| [`scenes/map/`](scenes/map/CLAUDE.md) | The maze map and its generation |
+| [`scenes/map/`](scenes/map/CLAUDE.md) | The level map and its generation |
 | [`assets/`](assets/CLAUDE.md) | Third-party CC0 art and the licence record |
 
 ## Game design
 
 Top-down single-hero action game with the visual style of classic RTS games (StarCraft/Warcraft camera and look), but you control only one unit: your hero.
 
-- **Core loop:** fight through a maze-like map filled with zombies; win by killing the boss at the end of the map.
+- **Core loop:** fight through a zombie-filled map; win by killing the boss at the end of it. The map is one route from start to boss whose *width* varies — wide clearings, narrow chokepoints, the occasional dead-end spur worth exploring — rather than a maze to navigate. Issue #37 settled that: the interest is in the encounters, not in wondering which turning is the right one.
 - **Progression:** level up by killing zombies, completing objectives along the way, and defeating minibosses.
 - **Skill tree:** every hero starts identical; a large skill tree lets each run/player build a unique hero. The skill tree is the central customization system — design decisions should protect its depth and build variety.
 
@@ -171,7 +171,7 @@ The team keeps a shared, AI-readable wiki in Flowdex, project slug **`mg-zombies
 
 A Flowdex page about something the repo already owns is therefore a *stub*: what the thing is, what constraint it imposes on everyone else, where the detail lives, and its links. Nothing more.
 
-**The concrete test: a page may point at a file, never restate what is inside it.** For game code that collapses to a plain ban — name the folder (`scenes/map/`), never `maze.gd`, `command_move_to()`, or `agent_radius = 1.0`. Pages about repo infrastructure may name the specific workflow or hook file, since "the build check" is unusable without it, but they still record what it *guarantees*, never how it is written. Issue and PR numbers are project state, not code facts, and stay welcome.
+**The concrete test: a page may point at a file, never restate what is inside it.** For game code that collapses to a plain ban — name the folder (`scenes/map/`), never `level_map.gd`, `command_move_to()`, or `agent_radius = 1.0`. Pages about repo infrastructure may name the specific workflow or hook file, since "the build check" is unusable without it, but they still record what it *guarantees*, never how it is written. Issue and PR numbers are project state, not code facts, and stay welcome.
 
 The rule scales in the right direction: as the codebase grows, more concerns become cross-cutting, so the wiki grows where it is uniquely useful instead of mirroring the source tree.
 
