@@ -55,8 +55,14 @@ func show_unit(unit: Node3D) -> void:
 	show()
 
 
+## is_instance_valid, not a null check, for the reason UnitSelection records: a
+## unit can leave the level without dying, so this can be holding a freed Health
+## — a reference that is non-null and unusable at once. Ordering in
+## scenes/main.gd happens to redirect the panel before anything is freed, but
+## that protection lives in another folder, and the sibling class does not lean
+## on it.
 func _unsubscribe() -> void:
-	if _health != null and _health.health_changed.is_connected(_on_health_changed):
+	if is_instance_valid(_health) and _health.health_changed.is_connected(_on_health_changed):
 		_health.health_changed.disconnect(_on_health_changed)
 	_health = null
 	_hp_bar.show()

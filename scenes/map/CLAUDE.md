@@ -58,14 +58,17 @@ start to boss passes through both chokepoints, and there is no loop.
 
 - **Two clearings** 10–13 cells across, joined by a passage 3 cells thick.
 - **Two one-cell chokepoints** — a throat out of the start clearing, and a
-  tunnel between the clearings that is one cell *tall* and five long.
+  tunnel between the clearings that is one cell *tall* and three long. (This
+  said five until #38 counted it: the cells at either mouth are single-cell
+  *cuts*, so every route still crosses all five, but they have open floor above
+  and below them and are not part of the enclosed tunnel.)
 - **A two-cell door** into the boss arena. Narrow enough to read as a gate,
   wide enough that two units are not forced to queue.
 - **Two dead-end spurs** — a chamber north of the first clearing (21 cells) and
   a vault south of the second (24 cells), each holding two zombies. Both hang
   off a two-cell neck, so neither shows up as a single-cell cut.
-- **Two checkpoints** past the implicit one on `S`: three cells filling the
-  tunnel (24 from the start) and a six-cell gate across the boss-room threshold
+- **Two checkpoints** past the implicit one on `S`: the three enclosed tunnel
+  cells (24 from the start) and a six-cell gate across the boss-room threshold
   (46). Between them the run splits 7 / 9 / 3 zombies. See below for why those
   two and not the obvious third.
 

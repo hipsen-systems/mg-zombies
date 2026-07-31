@@ -109,10 +109,21 @@ both an attack and a selection, or as neither, depending on which node
   else here survived being permanent.
 - **A unit can now leave the level without dying**, and that broke an assumption
   this folder had held since #36. `scenes/main.gd` *removes* the zombies ahead
-  of a checkpoint on respawn, so `UnitSelection` can be watching a `Health` that
-  is freed rather than merely dead — a reference that is non-null and unusable
-  at once. `_stop_watching()` therefore tests `is_instance_valid`, not `!= null`.
-  Anything else here that holds a unit between frames has the same problem.
+  of a checkpoint on respawn, so a `Health` this folder is watching can be freed
+  rather than merely dead — a reference that is non-null and unusable at once.
+  **Both** `UnitSelection._stop_watching()` and `UnitInfoBar._unsubscribe()`
+  therefore test `is_instance_valid`, not `!= null`. Only the first is reachable
+  today; the panel is spared by `scenes/main.gd` redirecting it before it clears
+  anything. That protection lives in another folder, which is exactly why the
+  two are not allowed to differ here — a reader finding one guarded and one not
+  would reasonably conclude the difference meant something.
+- **The checkpoint flash is cancelled when the death screen goes up.** Arming a
+  checkpoint and dying seconds later is not a corner case — a zombie chasing the
+  hero across a threshold produces it — and a "CHECKPOINT" still fading behind
+  "YOU DIED" reads as congratulating the player on the death. Killing the tween
+  is the load-bearing half: it drives `modulate:a`, so hiding the label without
+  it leaves the fade running and re-hiding it a second later, over whatever came
+  next.
 - **`flash_checkpoint()` is the second half of the checkpoint feedback, not the
   whole of it.** The lit pad in the world is the lasting signal and this is the
   transient one, for a player watching the fight rather than the floor they just

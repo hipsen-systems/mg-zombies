@@ -51,6 +51,11 @@ func set_attack_move_armed(armed: bool) -> void:
 
 
 func show_death() -> void:
+	# Cancel any checkpoint flash still fading. Arming a checkpoint and dying
+	# seconds later is not a corner case — a zombie chasing the hero across a
+	# threshold produces exactly that — and "CHECKPOINT" fading out behind "YOU
+	# DIED" reads as congratulating the player on the death.
+	_clear_checkpoint_flash()
 	_death_label.show()
 	_death_sub_label.show()
 
@@ -67,11 +72,19 @@ func hide_death() -> void:
 ## The lit pad in the world is the lasting signal; this is the one that reaches a
 ## player who is watching the fight rather than the floor they just crossed.
 func flash_checkpoint() -> void:
-	if _checkpoint_tween != null and _checkpoint_tween.is_valid():
-		_checkpoint_tween.kill()
+	_clear_checkpoint_flash()
 	_checkpoint_label.modulate.a = 1.0
 	_checkpoint_label.show()
 	_checkpoint_tween = create_tween()
 	_checkpoint_tween.tween_interval(CHECKPOINT_HOLD)
 	_checkpoint_tween.tween_property(_checkpoint_label, "modulate:a", 0.0, CHECKPOINT_FADE)
 	_checkpoint_tween.tween_callback(_checkpoint_label.hide)
+
+
+## Kill a running fade and take the label down. Both callers need the tween
+## stopped first: it drives `modulate:a`, so it would keep animating a hidden
+## label and then re-hide it a second later, over whatever came next.
+func _clear_checkpoint_flash() -> void:
+	if _checkpoint_tween != null and _checkpoint_tween.is_valid():
+		_checkpoint_tween.kill()
+	_checkpoint_label.hide()
