@@ -152,14 +152,50 @@ what winning *means* belongs here.
   to its exported `target` (the hero); the script captures that offset in
   `_ready()`, aims once with `look_at()`, and afterwards only translates with
   exponential smoothing. It never rotates at runtime.
-- `snap_to_target()` moves **and re-aims**. `main.gd` teleports the hero to the
-  map's start cell after the camera's `_ready()` has already run, so without the
-  re-aim the camera keeps pointing at wherever the hero sat in the .tscn.
+- `snap_to_target()` moves and **restores the authored angle** from a basis
+  captured in `_ready()`. It used to re-aim with `look_at(target)`, which was
+  the same thing while the camera sat at exactly `target + offset` — the
+  direction is `-offset` either way. Bounds (below) break that identity on
+  purpose, and aiming at the target from a held-back camera would tilt the
+  fixed perspective by however much it is being held.
 - The offset is `(0, 22.1, 14)` → a ~57° pitch. The old `(0, 16, 24)` (~33°)
   was authored for the small arena; on the 60×72 maze that shallow angle showed
   the map from the outside rather than the hero's surroundings. The level is now
-  176×152, which does not change the offset but does make issue #43 (the camera
-  has no level bounds, so the view runs off the edge at spawn) more visible.
+  176×152, which does not change the offset.
+
+### Level bounds (issue #43)
+
+`main.gd` hands the camera `LevelMap.bounds()` **before the first snap**, and
+the camera then stops following once its view would run off the level. Passed
+in rather than read off the map, so the camera never learns what a level is —
+the same seam that keeps the map from knowing what stands on its spawn markers.
+
+Two things about it are worth knowing before touching it.
+
+- **It measures the frame rather than assuming one.** The ground the camera
+  covers is found by casting the four screen corners and intersecting them with
+  the plane the target stands on, so the clamp is right at any window size. A
+  hand-tuned margin would have reproduced the original bug, which got worse as
+  the window got wider.
+- **The clamp yields to the hero, and this is the part that is easy to get
+  wrong.** Fitting the frame inside the level *exactly* is what the issue
+  proposed, and on this map it is unusable: the level is 176 across against a
+  ~140-wide frame, so squaring the view with the west edge slides the camera
+  far enough sideways to carry the hero off the screen — measured at 158 px
+  past the left edge at 1152×648. So a correction is capped at
+  `MAX_TARGET_DRIFT` (0.15) of the frame, priced in pixels, per axis
+  independently — the level has depth to spare and no width to spare, and a
+  shared budget would let the west edge, which cannot be fixed, throttle the
+  south edge, which costs about a metre.
+
+What that buys, at 1152×648: the void band under the start clearing is gone,
+the boss room frames without one, and what is left at spawn is a small dark
+wedge in the far corner. **It does not promise the void is never on screen** —
+near a corner the map cannot fill the frame and the camera will not pay the
+hero's visibility for it. If that ever needs to be true, the fix is a wider
+rock margin in the layout, not a bigger drift budget: past ~0.25 the camera
+buys blank rock with the hero pinned to the edge, which looks worse than the
+wedge.
 
 ## Physics layers (project convention, established here)
 
