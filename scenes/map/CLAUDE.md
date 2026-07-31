@@ -282,4 +282,4 @@ contiguous run of open cells without changing what the player sees.
   `scenes/hero/`, which is why it is in the frontmatter above. `Checkpoint`
   never names `Hero` as a type.
 
-<!-- verified-against: c6b15fb -->
+<!-- verified-against: a29d8c3 -->
