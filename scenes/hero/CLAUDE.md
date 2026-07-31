@@ -5,7 +5,7 @@ depends-on: [scenes, scenes/components, scenes/enemies, scenes/ui, assets]
 # scenes/hero/
 
 The player-controlled hero (issue #5: movement; issue #7: taking damage and
-dying; issue #11: his own attack).
+dying; issue #11: his own attack; issue #38: coming back from a death).
 
 - `hero.tscn` — `CharacterBody3D` (collision layer 3, mask 1|2 — see the
   layer table in `scenes/CLAUDE.md`) with a placeholder capsule + a small
@@ -243,4 +243,4 @@ numbers.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: f0a582f -->
+<!-- verified-against: a5a431e -->

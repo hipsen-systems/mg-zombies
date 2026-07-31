@@ -139,4 +139,4 @@ both an attack and a selection, or as neither, depending on which node
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: f0a582f -->
+<!-- verified-against: a5a431e -->
