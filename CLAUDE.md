@@ -37,6 +37,7 @@ fails CI until it is listed here.
 | [`scenes/enemies/`](scenes/enemies/CLAUDE.md) | Hostile actors — currently the basic zombie AI |
 | [`scenes/components/`](scenes/components/CLAUDE.md) | Reusable actor parts added as child nodes (`Health`) |
 | [`scenes/map/`](scenes/map/CLAUDE.md) | The level map and its generation |
+| [`scenes/ui/`](scenes/ui/CLAUDE.md) | The HUD, the unit info bar, and unit selection |
 | [`assets/`](assets/CLAUDE.md) | Third-party CC0 art and the licence record |
 
 ## Game design

@@ -1,9 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scenes/rts_camera.gd" id="2_camera"]
 [ext_resource type="PackedScene" path="res://scenes/hero/hero.tscn" id="3_hero"]
 [ext_resource type="PackedScene" path="res://scenes/map/level_map.tscn" id="4_level_map"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="5_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/unit_selection.tscn" id="6_selection"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 1
@@ -38,76 +40,12 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
 
 [node name="Enemies" type="Node3D" parent="."]
 
+[node name="UnitSelection" parent="." node_paths=PackedStringArray("hero") instance=ExtResource("6_selection")]
+hero = NodePath("../Hero")
+
 [node name="RTSCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.1, 14)
 script = ExtResource("2_camera")
 target = NodePath("../Hero")
 
-[node name="HUD" type="CanvasLayer" parent="."]
-
-[node name="HealthBar" type="ProgressBar" parent="HUD"]
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -60.0
-offset_right = 284.0
-offset_bottom = -24.0
-grow_vertical = 0
-max_value = 100.0
-value = 100.0
-show_percentage = false
-
-[node name="Value" type="Label" parent="HUD/HealthBar"]
-anchor_right = 1.0
-anchor_bottom = 1.0
-text = "100 / 100"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="AttackMoveLabel" type="Label" parent="HUD"]
-visible = false
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -280.0
-offset_top = 24.0
-offset_right = 280.0
-offset_bottom = 56.0
-grow_horizontal = 2
-theme_override_colors/font_color = Color(1, 0.68, 0.3, 1)
-theme_override_font_sizes/font_size = 22
-text = "ATTACK — left-click a target, or the ground to attack-move"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="ControlsLabel" type="Label" parent="HUD"]
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -540.0
-offset_top = -48.0
-offset_right = -24.0
-offset_bottom = -24.0
-grow_horizontal = 0
-grow_vertical = 0
-theme_override_colors/font_color = Color(0.72, 0.76, 0.84, 1)
-text = "Right-click: move / attack          A + left-click: attack-move"
-horizontal_alignment = 2
-vertical_alignment = 1
-
-[node name="DeathLabel" type="Label" parent="HUD"]
-visible = false
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -240.0
-offset_top = -48.0
-offset_right = 240.0
-offset_bottom = 48.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_font_sizes/font_size = 48
-text = "YOU DIED"
-horizontal_alignment = 1
-vertical_alignment = 1
+[node name="HUD" parent="." instance=ExtResource("5_hud")]

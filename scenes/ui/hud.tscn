@@ -1,0 +1,75 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/hud.gd" id="1_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/unit_info_bar.tscn" id="2_info_bar"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="HeroHealthBar" type="ProgressBar" parent="."]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -60.0
+offset_right = 284.0
+offset_bottom = -24.0
+grow_vertical = 0
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="Value" type="Label" parent="HeroHealthBar"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="UnitInfoBar" parent="." instance=ExtResource("2_info_bar")]
+
+[node name="AttackMoveLabel" type="Label" parent="."]
+visible = false
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -152.0
+offset_right = 280.0
+offset_bottom = -120.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.68, 0.3, 1)
+theme_override_font_sizes/font_size = 22
+text = "ATTACK — left-click a target, or the ground to attack-move"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ControlsLabel" type="Label" parent="."]
+offset_left = 24.0
+offset_top = 18.0
+offset_right = 464.0
+offset_bottom = 96.0
+theme_override_colors/font_color = Color(0.72, 0.76, 0.84, 1)
+text = "Right-click: move / attack
+Left-click: select a unit
+A + left-click: attack / attack-move"
+
+[node name="DeathLabel" type="Label" parent="."]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -48.0
+offset_right = 240.0
+offset_bottom = 48.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 48
+text = "YOU DIED"
+horizontal_alignment = 1
+vertical_alignment = 1

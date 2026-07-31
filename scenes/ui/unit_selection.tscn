@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/unit_selection.gd" id="1_selection"]
+
+[sub_resource type="TorusMesh" id="TorusMesh_ring"]
+inner_radius = 0.52
+outer_radius = 0.7
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring"]
+shading_mode = 0
+albedo_color = Color(0.25, 0.85, 1, 1)
+
+[node name="UnitSelection" type="Node3D"]
+script = ExtResource("1_selection")
+
+[node name="Ring" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("TorusMesh_ring")
+surface_material_override/0 = SubResource("StandardMaterial3D_ring")

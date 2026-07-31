@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/hero, scenes/map, scenes/components, assets]
+depends-on: [scenes, scenes/hero, scenes/map, scenes/components, scenes/ui, assets]
 ---
 
 # scenes/enemies/
@@ -155,10 +155,18 @@ the hero, now that he can deal damage at all (issue #11).
 - Emits `died(zombie)`. Nothing consumes it yet — it is the hook for XP
   (issue #8). Note the hero emits its own `killed(victim)` from the swing that
   lands the blow, which is the *attributed* version of the same moment.
+- **Describes itself to the unit info bar** through `unit_info()` and the
+  `display_name` export (per-instance like every stat, so the boss-room guard
+  the class docs describe can announce itself without a new scene). The travel
+  speed it reports is `chase_speed`, not `roam_speed`: what a player wants when
+  they click a zombie is how fast it closes on them. Selecting a zombie does
+  nothing to it — `scenes/ui/` never issues an order. That folder also watches
+  the `Health` child's `died` so the bar drops a corpse, which is why it is in
+  the frontmatter above.
 - Spawned by `scenes/main.gd` at the `Z` cells of `scenes/map/level_map.gd`; the
   spawner sets `position` *before* `add_child`, because `_ready()` captures
   `global_position` as home.
 - Still a placeholder capsule. The Quaternius zombie models in
   `assets/characters/zombies/` are imported but unused, matching the hero.
 
-<!-- verified-against: fe31cbd -->
+<!-- verified-against: f0a582f -->

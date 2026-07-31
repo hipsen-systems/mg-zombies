@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/components, scenes/enemies, assets]
+depends-on: [scenes, scenes/components, scenes/enemies, scenes/ui, assets]
 ---
 
 # scenes/hero/
@@ -31,16 +31,25 @@ the control model the whole game is styled after. Actions are in
 |-------|-------------|---------------|
 | Right-click (`move_command`) | attack it | move there |
 | `A` then left-click (`attack_move` + `select_command`) | attack it | attack-move there |
-| Left-click alone (`select_command`) | *selection — issue #36* | *selection — issue #36* |
+| Left-click alone (`select_command`) | select it | select the hero back |
 | `A` again, or `Escape` (`cancel_command`) | disarms `A` | disarms `A` |
 
 `A` toggles rather than latching, and a right-click also disarms it, so there
 are three ways out of the armed state and none of them requires knowing which.
 
 **Left-click is deliberately never an attack.** An RTS where inspecting a unit
-also swings at it is unusable, so the button is reserved for selection even
-though nothing consumes a bare left-click yet. `A` borrows it for exactly one
-click and hands it straight back.
+also swings at it is unusable, so the button is reserved for selection. `A`
+borrows it for exactly one click and hands it straight back.
+
+**This script owns the button, but not what a bare click means.** It emits
+`select_clicked(screen_point)` for every left-click the armed attack command did
+*not* take, and `scenes/ui/` turns that into a selection. Handing the click on
+rather than letting the selection code read the mouse itself keeps one owner on
+the button: two nodes both watching `select_command` would have to agree about
+the armed state *mid-event* — this script disarms `A` while handling the very
+click that used it — so an armed click would land as both an attack and a
+selection, or as neither, depending on which node `_unhandled_input` reached
+first.
 
 Public order API — future AI, skills and tests should call these rather than
 poking the `NavigationAgent3D`: `command_move_to(point)`,
@@ -95,6 +104,11 @@ prejudge it.
 | `attack_cooldown` | 0.9 | Attack speed, expressed as the zombie's is |
 | `acquire_radius` | 9.0 | Under the zombie's 12 detection: he is noticed first |
 | `regen_delay` / `regen_per_second` | 5.0 / 4.0 | See below |
+| `display_name` | `"Hero"` | What the unit info bar calls him |
+
+`unit_info()` reports the name plus damage, cooldown and move speed for that
+bar. Display-only, and the hero picks *which* of his numbers is the interesting
+one — see the contract in `scenes/ui/CLAUDE.md`.
 
 Measured 1v1 against one zombie: ~18 HP lost per kill, ~6 s of fighting.
 
@@ -196,9 +210,14 @@ numbers.
   bakes at runtime) and a current `Camera3D` for the click raycast. The
   navmesh clamp reads `get_world_3d().navigation_map`, so orders issued before
   the first bake resolve to the hero's own position.
+- Emits `select_clicked(screen_point)` for a bare left-click, consumed by
+  `scenes/ui/` (via `scenes/main.gd`) as a selection.
 - Emits `move_ordered(world_point)` (move *and* attack-move) and
-  `attack_ordered(target)` — neither is consumed yet; they exist for the
-  selection UI in issue #36. Emits `killed(victim)`, the XP hook for issue #8,
+  `attack_ordered(target)` — still unconsumed. This doc used to say they existed
+  for the selection UI in issue #36; that turned out to be wrong, because
+  selection is deliberately inert and reads nothing about what the hero is
+  doing. They now have no planned consumer.
+  Emits `killed(victim)`, the XP hook for issue #8,
   fired from the swing that lands the killing blow so attribution is exact
   rather than "something died". Emits `attack_move_armed_changed(armed)`, which
   `scenes/main.gd` consumes to show the armed-attack indicator, and `died`,
@@ -207,4 +226,4 @@ numbers.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: fe31cbd -->
+<!-- verified-against: f0a582f -->

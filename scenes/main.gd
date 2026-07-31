@@ -1,5 +1,5 @@
 extends Node3D
-## Game entry scene (issues #5, #6, #7, #11).
+## Game entry scene (issues #5, #6, #7, #11, #36).
 ##
 ## Owns the order the level comes up in: the map builds itself in its own
 ## _ready() (children run first), then this script places the hero on the map's
@@ -8,6 +8,10 @@ extends Node3D
 ##
 ## The bake is synchronous (on_thread = false) because the web export has
 ## thread support disabled.
+##
+## It also wires the HUD and unit selection (scenes/ui/) to the hero, and that
+## is all it does with them: this script calls HUD methods and never touches a
+## Label, so the layout is free to change without a gameplay script changing too.
 
 ## Spawn units just above the floor surface and let gravity settle them, rather
 ## than guessing the exact tile height.
@@ -23,10 +27,8 @@ const RESTART_DELAY := 2.5
 @onready var _hero: Hero = $Hero
 @onready var _camera: RTSCamera = $RTSCamera
 @onready var _enemies: Node3D = $Enemies
-@onready var _health_bar: ProgressBar = $HUD/HealthBar
-@onready var _health_value: Label = $HUD/HealthBar/Value
-@onready var _death_label: Label = $HUD/DeathLabel
-@onready var _attack_move_label: Label = $HUD/AttackMoveLabel
+@onready var _hud: HUD = $HUD
+@onready var _selection: UnitSelection = $UnitSelection
 
 
 func _ready() -> void:
@@ -35,10 +37,18 @@ func _ready() -> void:
 	_nav_region.bake_navigation_mesh(false)
 	_spawn_zombies()
 
-	_hero.health.health_changed.connect(_on_hero_health_changed)
+	_hero.health.health_changed.connect(_hud.set_hero_health)
 	_hero.died.connect(_on_hero_died)
-	_hero.attack_move_armed_changed.connect(_on_attack_move_armed_changed)
-	_on_hero_health_changed(_hero.health.current, _hero.health.max_health)
+	_hero.attack_move_armed_changed.connect(_hud.set_attack_move_armed)
+	# The hero owns the left mouse button because he owns the command scheme it
+	# belongs to, and hands on the clicks his attack command did not take.
+	_hero.select_clicked.connect(_selection.select_at)
+	_selection.selection_changed.connect(_hud.show_unit)
+
+	_hud.set_hero_health(_hero.health.current, _hero.health.max_health)
+	# Last, and after the connection above: the hero starts selected, and the
+	# info bar only learns that from the signal this emits.
+	_selection.select_unit(_hero)
 
 
 ## One zombie per `Z` cell in the level layout. The map says where an encounter
@@ -54,20 +64,8 @@ func _spawn_zombies() -> void:
 		_enemies.add_child(zombie)
 
 
-func _on_hero_health_changed(current: float, maximum: float) -> void:
-	_health_bar.max_value = maximum
-	_health_bar.value = current
-	_health_value.text = "%d / %d" % [roundi(current), roundi(maximum)]
-
-
-## Arming the attack command changes what the *next* left-click means, and a
-## mode the player cannot see is a mode they will forget they are in.
-func _on_attack_move_armed_changed(armed: bool) -> void:
-	_attack_move_label.visible = armed
-
-
 func _on_hero_died() -> void:
-	_death_label.show()
+	_hud.show_death()
 	# Crude restart, which is all issue #7 asks for: a run carries no state
 	# worth preserving yet.
 	await get_tree().create_timer(RESTART_DELAY).timeout

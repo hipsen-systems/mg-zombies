@@ -34,7 +34,11 @@ out now costs one node per actor and avoids two drifting copies.
 ## Dependencies
 
 None — plain `Node`, no scene or autoload requirements. Consumed by
-`scenes/hero/` and `scenes/enemies/`; `scenes/main.gd` connects to the hero's
-`health_changed` to drive the HUD bar.
+`scenes/hero/` and `scenes/enemies/`. Both signals are also read by `scenes/ui/`
+— `health_changed` drives the hero's bar and the selected unit's, and `died`
+tells `scenes/ui/` to drop a dying unit's selection rather than show a corpse.
+(That folder subscribes at the selection layer, not in the bar itself.) It finds the
+component by the `health` property on a unit, so the name is part of its
+contract; this doc does not depend on it in return.
 
 <!-- verified-against: 8a4044b -->
