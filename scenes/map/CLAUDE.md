@@ -189,8 +189,18 @@ rows on is the whole fix, and it costs nothing — no spawn sits between 45 and
   *size* — the boss is as wide as the ring, so what survives is a crescent at
   its feet rather than a circle around it (issue #49). Colour was the constraint
   anyone thought to check; scale was the one nobody had needed to.
-- Public API: `start_position()`, `boss_position()`, `boss_segment()`,
-  `zombie_spawns()`, `checkpoints()`, and the `built` signal.
+- Public API: `bounds()`, `start_position()`, `boss_position()`,
+  `boss_segment()`, `zombie_spawns()`, `checkpoints()`, and the `built` signal.
+
+**`bounds()` covers every cell, rock included, and the rock caps are the reason
+it can.** It is the rectangle `scenes/`'s camera keeps its view inside (issue
+#43), so it has to be the region with *something drawn in it* rather than the
+region you can walk on — and because every rock cell is capped rather than left
+as a hole, those two are the whole grid and the open floor respectively. The
+walkable shape would be the wrong answer twice over: it is full of concavities
+no camera can track, and honouring it would push the level's own walls off
+screen. It reads `layout` alone, so unlike the rest of the API it is valid
+before `build()` has run.
 
 **The map never instances enemies, and it does not instance checkpoints
 either.** It only says where they go; `scenes/main.gd` reads `zombie_spawns()`
@@ -282,4 +292,4 @@ contiguous run of open cells without changing what the player sees.
   `scenes/hero/`, which is why it is in the frontmatter above. `Checkpoint`
   never names `Hero` as a type.
 
-<!-- verified-against: a29d8c3 -->
+<!-- verified-against: 711281c -->

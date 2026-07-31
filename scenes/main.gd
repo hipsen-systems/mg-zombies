@@ -67,6 +67,9 @@ var _run_over := false
 
 func _ready() -> void:
 	_hero.global_position = _level.start_position() + Vector3(0, SPAWN_CLEARANCE, 0)
+	# Before the snap, not after: the snap decides the frame the player opens on,
+	# and an unbounded one opens on the void past the south edge (issue #43).
+	_camera.set_bounds(_level.bounds())
 	_camera.snap_to_target()
 	_nav_region.bake_navigation_mesh(false)
 	_place_checkpoints()

@@ -157,6 +157,25 @@ func _ready() -> void:
 	build()
 
 
+## The level's whole footprint on the ground plane: world X on the returned
+## rect's x axis, world Z on its y.
+##
+## It covers every cell, rock included, because every cell is *drawn* — rock is
+## capped at wall height (see [method _add_rock_cap]) rather than left as a
+## hole. So this rectangle is exactly the region that has something in it, and
+## anything outside it is empty void, which is what makes it the shape
+## scenes/'s camera clamps its view into (issue #43). The walkable floor is a
+## smaller and wrong answer to that question: rock frames the level, and a
+## camera that refused to show it would push the walls off screen.
+##
+## Reads [member layout] only, so it is valid before [method build] has run.
+func bounds() -> Rect2:
+	if layout.is_empty():
+		return Rect2()
+	var size := Vector2(float(layout[0].length()), float(layout.size())) * CELL_SIZE
+	return Rect2(-size * 0.5, size)
+
+
 ## World position of the cell the hero starts in.
 func start_position() -> Vector3:
 	return _cell_to_world(_start_cell)
