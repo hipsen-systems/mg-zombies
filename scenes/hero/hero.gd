@@ -203,8 +203,21 @@ func unit_info() -> Dictionary:
 ## survives his death: everything cleared behind the armed checkpoint stays
 ## cleared, so there is no scene to reload. Every piece of state a death leaves
 ## behind is reset here — the death flag, the orders, the armed attack command,
-## the carried velocity, and the three timers, one of which would otherwise let
-## him swing the instant he lands.
+## the carried velocity, and the three timers.
+##
+## [b]The timers are cleared to stop state leaking across a death, not to hold
+## him back.[/b] They count *down*, and _physics_process returns above the line
+## that decrements them while [member _dead] is set, so they are frozen at
+## whatever they read when he fell — dying mid-cooldown would otherwise make his
+## first swing of the new life wait out the remainder of the last one. Zeroing
+## them means the opposite of a delay: he lands fully ready.
+##
+## What actually stops him swinging the moment he arrives is not here at all.
+## It is the map's rule that no spawn sits within 4 cells of a respawn cell (see
+## scenes/map/CLAUDE.md), which is well outside [member acquire_radius], so there
+## is nothing to acquire on the frame he comes back. That is the invariant to
+## re-check if a checkpoint is ever placed with less clearance, or if issue #9
+## grows the radii — not this reset.
 func respawn_at(point: Vector3) -> void:
 	_dead = false
 	_clear_orders()

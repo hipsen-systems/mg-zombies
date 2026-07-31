@@ -212,13 +212,26 @@ numbers.
   everything cleared behind the armed checkpoint stays cleared. So `died` now
   fires once per *death*, not once per run, and every piece of state a death
   leaves behind has to be undone in one place — the death flag, the orders, the
-  armed attack command, the carried velocity, and the three timers. Two of those
-  are easy to miss and were: **the attack cooldown**, which would otherwise let
-  him swing the instant he lands, and **the nav agent's target**, which nothing
+  armed attack command, the carried velocity, and the three timers.
+  `Health.revive()` is called last, so `health_changed` reaches the HUD with the
+  hero already alive and standing where he belongs.
+
+  Two pieces of that are easy to miss. **The nav agent's target**, which nothing
   else clears — leave it and the first order of the new life is judged finished
-  or not against a destination from the previous one. `Health.revive()` is
-  called last, so `health_changed` reaches the HUD with the hero already alive
-  and standing where he belongs.
+  or not against a destination from the previous one. And **the timers**, which
+  are frozen rather than running while he is dead, because `_physics_process`
+  returns above the line that decrements them. They count *down*, so a residual
+  is a *delay*: dying mid-cooldown and keeping the value would make his first
+  swing of the new life wait out the remainder of his last one. Clearing them
+  stops that leak; it does not hold him back, it does the reverse.
+
+  **What stops him swinging the instant he arrives is not in this folder.** It
+  is `scenes/map/`'s rule that no spawn sits within 4 cells of a respawn cell —
+  well outside `acquire_radius` (9) — so there is nothing to acquire on the
+  frame he comes back. That is the invariant to re-check if a checkpoint is ever
+  placed with less clearance, or if issue #9 grows these radii. Cross-review
+  caught this stated backwards: the code was right and the reason attached to it
+  was inverted, which is the same failure the doc lesson on #36 records.
 
 ## Dependencies
 
