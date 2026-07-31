@@ -36,7 +36,8 @@ out now costs one node per actor and avoids two drifting copies.
 None — plain `Node`, no scene or autoload requirements. Consumed by
 `scenes/hero/` and `scenes/enemies/`. Both signals are also read by `scenes/ui/`
 — `health_changed` drives the hero's bar and the selected unit's, and `died`
-tells the unit info bar to stop showing a corpse. That folder finds the
+tells `scenes/ui/` to drop a dying unit's selection rather than show a corpse.
+(That folder subscribes at the selection layer, not in the bar itself.) It finds the
 component by the `health` property on a unit, so the name is part of its
 contract; this doc does not depend on it in return.
 
