@@ -47,6 +47,13 @@ current map were moved to earn that clearance, and the boss-room guard was moved
 four cells deeper into its room for the same reason. Nothing is now within 4
 cells of a respawn cell; the nearest to `S` is 7.
 
+**`scenes/hero/` leans on that number**, so it is a contract and not just good
+practice. 4 cells is 16 units, comfortably outside his `acquire_radius` of 9, and
+that gap is the only reason he cannot swing on the frame he respawns — his own
+timers are cleared to *full readiness*, deliberately. Shrink the clearance here,
+and the invariant protecting the player is gone with nothing in that folder to
+notice. Issue #9 raising `acquire_radius` does the same from the other end.
+
 Cells are `CELL_SIZE` = 4 units, matching the KayKit dungeon grid: `wall` is
 4×4×1 and `floor_tile_large` is 4×4.
 
@@ -251,4 +258,4 @@ contiguous run of open cells without changing what the player sees.
   `scenes/hero/`, which is why it is in the frontmatter above. `Checkpoint`
   never names `Hero` as a type.
 
-<!-- verified-against: a5a431e -->
+<!-- verified-against: ac81093 -->
