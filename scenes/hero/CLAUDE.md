@@ -243,4 +243,4 @@ numbers.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: a5a431e -->
+<!-- verified-against: 35ada3a -->
