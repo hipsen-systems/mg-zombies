@@ -49,6 +49,15 @@ signal killed(victim: Node3D)
 ## the player that the next left-click means "attack" rather than "select".
 signal attack_move_armed_changed(armed: bool)
 
+## Emitted for a left-click this script did *not* take — that is, every click
+## the armed attack command did not borrow. scenes/ui/ turns it into a selection.
+##
+## Handing the click on rather than letting the selection code read the mouse
+## itself keeps one owner on the button. Two nodes both watching select_command
+## would have to agree about the armed state mid-event, and which of them saw it
+## first would depend on the order _unhandled_input walks the tree.
+signal select_clicked(screen_point: Vector2)
+
 ## Emitted once when the hero's health hits zero. scenes/main.gd listens.
 signal died
 
@@ -102,6 +111,11 @@ const RETARGET_INTERVAL := 0.2
 
 ## How far the visual jabs forward on a swing, in metres.
 const SWING_LUNGE := 0.45
+
+## What the unit info bar calls him. An export rather than a constant for the
+## same reason the stats are: it is per-instance, so a named or unique hero
+## needs no new code.
+@export var display_name := "Hero"
 
 @export_group("Movement")
 @export var move_speed := 6.0
@@ -164,6 +178,21 @@ func take_damage(amount: float) -> void:
 		return
 	_mark_in_combat()
 	health.take_damage(amount)
+
+
+## Headline stats for the unit info bar (scenes/ui/, issue #36).
+##
+## The unit reports its own numbers rather than the panel reaching in for named
+## properties, because the property that matters differs per actor — travel
+## speed here is [member move_speed], on a zombie it is its chase speed. Read-only
+## and display-only: nothing acts on this.
+func unit_info() -> Dictionary:
+	return {
+		"name": display_name,
+		"damage": attack_damage,
+		"attack_cooldown": attack_cooldown,
+		"move_speed": move_speed,
+	}
 
 
 ## What the hero is currently doing, for the HUD and for tests.
@@ -251,9 +280,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	# keeps this path deterministic for headless tests.
 	if event.is_action_pressed("select_command"):
 		if not _attack_move_armed:
-			# A bare left-click is selection (issue #36), which this script does
-			# not own. Deliberately not an attack: an RTS where inspecting a unit
-			# also swings at it is unusable.
+			# A bare left-click is selection (issue #36), which scenes/ui/ owns.
+			# Deliberately not an attack: an RTS where inspecting a unit also
+			# swings at it is unusable.
+			select_clicked.emit((event as InputEventMouseButton).position)
 			return
 		_set_attack_move_armed(false)
 		_issue_attack_click((event as InputEventMouseButton).position)

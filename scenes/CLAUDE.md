@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes/map, scenes/hero, scenes/enemies]
+depends-on: [scenes/map, scenes/hero, scenes/enemies, scenes/ui]
 ---
 
 # scenes/
@@ -8,9 +8,10 @@ Top-level game scenes and their scripts.
 
 - `main.tscn` — the game entry scene: a `NavigationRegion3D` wrapping the
   level map (`scenes/map/`), the instanced hero, an `Enemies` holder, lighting,
-  the RTS camera, and the `HUD` `CanvasLayer`. The 40×40 test arena that lived
-  here for issue #5 is gone; issue #6 replaced it with the real map, and issue
-  #37 replaced that maze with an open single-path level.
+  the RTS camera, and two instances from `scenes/ui/` — the `HUD` and the
+  `UnitSelection` node that holds the selection ring. The 40×40 test arena that
+  lived here for issue #5 is gone; issue #6 replaced it with the real map, and
+  issue #37 replaced that maze with an open single-path level.
 - `main.gd` — attached to the root. Owns the startup order, which is
   load-bearing:
   1. the map builds itself in its own `_ready()` (Godot readies children
@@ -27,25 +28,21 @@ Top-level game scenes and their scripts.
   leash are measured from. `Enemies` sits at the origin so local and global
   agree.
 
-## HUD
+## HUD and selection
 
-A deliberately minimal `CanvasLayer` in `main.tscn`, driven by a handful of
-lines in `main.gd` rather than its own scene — issue #7 needed the hero's HP to
-be *visible* to be testable at all, and issue #11 needed the armed-attack state
-to be visible for the same reason.
+**Both live in `scenes/ui/` now** (issue #36). They were inline here while the
+HUD was a handful of Labels driven by a handful of lines in `main.gd`; the unit
+info bar was the element that made that untenable.
 
-- `HUD/HealthBar` (`ProgressBar`, bottom-left) with a `Value` `Label` child
-  showing `current / max`, fed by `Hero.health`'s `health_changed`.
-- `HUD/DeathLabel` — hidden until the hero dies.
-- `HUD/AttackMoveLabel` — shown while the attack command is armed (`A`
-  pressed, waiting for the click). A mode the player cannot see is a mode they
-  will forget they are in. Driven by `Hero.attack_move_armed_changed`.
-- `HUD/ControlsLabel` — static one-liner naming the two commands, bottom-right.
-  The web build is the project's front door and arrives with no instructions.
+What is left here is the wiring, and only the wiring: `main.gd` connects the
+hero's `health_changed`, `attack_move_armed_changed`, `died` and
+`select_clicked` to methods on the two `scenes/ui/` nodes, and connects
+`UnitSelection.selection_changed` to the `HUD`. It never touches a Label. Add UI
+there, not here, and keep it reachable by method rather than by node path.
 
-**This has now outgrown living here**, which is what issue #36 addresses: it
-adds a unit info bar and creates `scenes/ui/` to hold all of it. Add UI there,
-not here.
+One ordering rule lives in `_ready()`: `selection_changed` is connected
+**before** `select_unit(_hero)` is called, because the info bar learns the
+initial selection from that signal and nothing re-sends it.
 
 ## Death and restart
 
@@ -95,19 +92,21 @@ inspector reads properly.
 | Layer | Used for | Who is on it | Who masks it |
 |-------|----------|--------------|--------------|
 | 1     | Ground/floor (ground-click rays collide with this only) | floor tiles | hero, zombies |
-| 2     | Walls & static obstacles (also tested by both line-of-sight rays and by the hero's attack-targeting click, so neither sees through rock) | wall pieces | hero, zombies |
-| 3     | Hero | hero | zombies |
-| 4     | Enemies (also what the hero's attack-targeting ray tests) | zombies | *nobody* |
+| 2     | Walls & static obstacles (also tested by both line-of-sight rays, by the hero's attack-targeting click, and by the selection click, so none of them sees through rock) | wall pieces | hero, zombies |
+| 3     | Hero (also what the selection ray tests) | hero | zombies |
+| 4     | Enemies (also what the hero's attack-targeting ray and the selection ray test) | zombies | *nobody* |
 
 **"Who masks it" is about bodies, not queries.** A `collision_mask` decides what
 a body is stopped by; a ray query carries its own mask and is stopped by
-nothing. Three of the four layers now have a ray consumer and no body masking
-them for that purpose, so the two columns answer different questions — read
-`nobody` in the last row as "nothing is *blocked* by enemies", which is what the
-paragraph below depends on. Ray consumers belong in the "Used for" column, and
-adding one is a change to this table even though no mask moved. That distinction
-is what a cross-review of PR #41 caught: the hero gained an attack-targeting ray
-against layer 4 while this row still read as though nothing touched it.
+nothing. Every layer now has a ray consumer, and three of the four have no body
+masking them for that purpose, so the two columns answer different questions —
+read `nobody` in the last row as "nothing is *blocked* by enemies", which is
+what the paragraph below depends on. Ray consumers belong in the "Used for"
+column, and adding one is a change to this table even though no mask moved. That
+distinction is what a cross-review of PR #41 caught: the hero gained an
+attack-targeting ray against layer 4 while this row still read as though nothing
+touched it. Issue #36 added the third such consumer — `scenes/ui/`'s selection
+ray, which is the first thing of any kind to query layer 3.
 
 The asymmetry in the last two rows is intentional: zombies are blocked by the
 hero, the hero is not blocked by zombies, and zombies do not collide with each
@@ -117,20 +116,25 @@ describes. See `scenes/enemies/CLAUDE.md`.
 
 ## Dependencies / signals
 
-- Instances `scenes/map/level_map.tscn` and `scenes/hero/hero.tscn` from the
-  .tscn, and `scenes/enemies/zombie.tscn` at runtime; the camera's `target`
-  export points at the hero.
+- Instances `scenes/map/level_map.tscn`, `scenes/hero/hero.tscn`,
+  `scenes/ui/hud.tscn` and `scenes/ui/unit_selection.tscn` from the .tscn, and
+  `scenes/enemies/zombie.tscn` at runtime. Two exports are wired here as
+  `NodePath`s and both point at the hero: the camera's `target` and
+  `UnitSelection.hero`.
 - **Input actions** are defined in `project.godot` and every one of them is
   consumed by `scenes/hero/`, not by anything in this folder. What each *means*
   is that folder's to document; this is only the inventory:
   `move_command` (right mouse), `select_command` (left mouse),
   `attack_move` (`A`), `cancel_command` (`Escape`).
 - `LevelMap` emits `built`; nothing consumes it yet.
-- `main.gd` consumes `Hero.died`, `Hero.health.health_changed` and
-  `Hero.attack_move_armed_changed`. Unconsumed so far: `Hero.move_ordered` and
-  `Hero.attack_ordered` (for the selection UI, issue #36), and both death
-  signals — `Zombie.died` and the hero's attributed `Hero.killed`, which are
-  the XP hooks for issue #8.
+- `main.gd` consumes `Hero.died`, `Hero.health.health_changed`,
+  `Hero.attack_move_armed_changed` and `Hero.select_clicked`, forwarding each to
+  `scenes/ui/`. Unconsumed so far: `Hero.move_ordered` and `Hero.attack_ordered`
+  — this doc used to earmark them "for the selection UI, issue #36", and that
+  turned out to be wrong: selection is deliberately inert and reads nothing
+  about what the hero is doing. They now have no planned consumer. Also
+  unconsumed are both death signals, `Zombie.died` and the hero's attributed
+  `Hero.killed`, which are the XP hooks for issue #8.
 
 ## Tooling note
 

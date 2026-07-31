@@ -67,6 +67,11 @@ const CORPSE_LINGER := 2.0
 const HIT_FLASH_TIME := 0.12
 const HIT_FLASH_COLOUR := Color(1.0, 0.88, 0.88)
 
+## What the unit info bar calls it. Per-instance like every stat below, so the
+## boss-room guard the class docs describe can announce itself without a new
+## scene or a new script.
+@export var display_name := "Zombie"
+
 @export_group("Roaming")
 ## Radius of the patch this zombie wanders while idle, centred on its spawn.
 @export var roam_radius := 6.0
@@ -140,6 +145,21 @@ func _ready() -> void:
 
 func is_dead() -> bool:
 	return _state == State.DEAD
+
+
+## Headline stats for the unit info bar (scenes/ui/, issue #36).
+##
+## The travel speed reported is [member chase_speed], not [member roam_speed]:
+## the number a player wants when they click a zombie is how fast it closes on
+## them, not how fast it shambles when it has not seen them. Read-only and
+## display-only — selecting a zombie does nothing to it.
+func unit_info() -> Dictionary:
+	return {
+		"name": display_name,
+		"damage": attack_damage,
+		"attack_cooldown": attack_cooldown,
+		"move_speed": chase_speed,
+	}
 
 
 ## Damage entry point. Attackers call this rather than reaching into the Health
