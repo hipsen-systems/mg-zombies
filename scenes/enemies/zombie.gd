@@ -20,7 +20,10 @@ extends CharacterBody3D
 ##                            the map author put them.
 ##
 ## All of them are per-instance exports: a corridor shambler and a boss-room
-## guard are the same scene with different numbers.
+## guard are the same scene with different numbers. [b]boss.tscn is that second
+## scene[/b] (issue #39) — this script, a bigger capsule, and stats that make it
+## a guard rather than a wanderer. Nothing in here knows which of the two it is
+## running, and keeping it that way is the point.
 
 ## Emitted once when this zombie's health hits zero, before the corpse fades.
 ## The hook issue #8 will use to award XP.
@@ -248,7 +251,15 @@ func _think() -> void:
 			# The hero is deliberately ignored until home is reached, so he
 			# cannot chain-pull a zombie across the map by re-entering its
 			# detection radius at the edge of the leash.
-			if from_home <= roam_radius:
+			#
+			# "Back inside the patch" cannot be the only way out of this state:
+			# the nav agent stops within target_desired_distance of its goal, so
+			# a guard with no patch at all (boss.tscn roams a radius of zero)
+			# would never satisfy it, and would stand at its post in RETURN
+			# forever — the one state that cannot acquire a target. Finishing the
+			# walk home is the same answer for any radius, and for a roam_radius
+			# wider than that stopping distance the distance test still wins.
+			if from_home <= roam_radius or _nav_agent.is_navigation_finished():
 				_enter_roam()
 
 

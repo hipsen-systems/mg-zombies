@@ -4,14 +4,19 @@ depends-on: [scenes, scenes/hero, scenes/map, scenes/components, scenes/ui, asse
 
 # scenes/enemies/
 
-Hostile actors. Currently just the basic zombie (issue #7).
+Hostile actors: the basic zombie (issue #7) and the end boss (issue #39). They
+are **one script and two scenes**.
 
 - `zombie.tscn` — `CharacterBody3D`, collision layer 4 (enemies), mask 1|2|3.
   Placeholder green capsule + facing "nose" under a `Visual` node, a
   `CollisionShape3D`, a `NavigationAgent3D`, and a `Health` child (30 HP). In
   the `enemies` group — that is how the hero finds and targets it, so don't
   rename it: `scenes/hero/` looks enemies up by group, never by class.
-- `zombie.gd` (`class_name Zombie`) — roam / notice / chase / melee AI.
+- `boss.tscn` — the end boss. Structurally identical to the above, down to the
+  layer, the mask and the group: the same script, a capsule scaled ~1.75×, and
+  different export values. See "The boss" below.
+- `zombie.gd` (`class_name Zombie`) — roam / notice / chase / melee AI, and the
+  script on both scenes. Nothing in it knows which of the two it is running.
 
 ## The four radii
 
@@ -53,7 +58,13 @@ from where the map author placed them.
   when there are attack animations to hang it on.
 - **RETURN** — leashed or lost him. **Ignores the hero until home is reached**,
   so he cannot chain-pull a zombie across the map by re-entering its detection
-  radius at the edge of the leash.
+  radius at the edge of the leash. It exits on `from_home <= roam_radius` **or**
+  on the walk home finishing, and the second half is not belt-and-braces: the
+  nav agent stops within `target_desired_distance` (1.0) of its goal, so a guard
+  with `roam_radius = 0` never satisfies the first and would stand at its post
+  in RETURN for the rest of the run — the one state that cannot acquire a
+  target. Added with the boss, which is the first instance to have no patch at
+  all; for any wider radius the distance test still wins and nothing changed.
 - **DEAD** — goes inert (layer and mask both zeroed), emits `died(zombie)`, then
   a tween falls it over, lingers, sinks it and frees it. **`_physics_process`
   returns immediately for a dead body, above the gravity block**, and that
@@ -92,6 +103,62 @@ Together they mean the only way to undo damage is to actually break away. That
 is what closes the chip-and-retreat exploit `leash_radius` would otherwise hand
 the hero, now that he can deal damage at all (issue #11).
 
+## The boss (issue #39)
+
+`boss.tscn` is `zombie.gd` with different numbers, which is what this folder was
+built for — every stat has been a per-instance export since #7 precisely so the
+boss would not need a second AI. It did not: no new script, no new state, and no
+change in `scenes/ui/`, because a unit describes itself to the info bar through
+`unit_info()` and `display_name` and the boss simply reports bigger numbers.
+
+| Export | Zombie | Boss | Why the boss's value |
+|--------|--------|------|----------------------|
+| `max_health` (on `Health`) | 30 | 240 | 20 hero swings — a fight with a shape, not a slog |
+| `attack_damage` | 9 | 25 | four hits kill a full-health hero |
+| `attack_cooldown` | 1.3 | 2.0 | the damage is huge, so it has to be dodgeable |
+| `attack_range` | 2.0 | 3.0 | **longer than the hero's 2.2** — see below |
+| `chase_speed` | 3.4 | 2.2 | slow enough that kiting is a real option |
+| `roam_radius` | 6 | 0 | a guard, not a wanderer |
+| `detection_radius` | 12 | 18 | notices the hero ~4.5 cells into the room |
+| `aggro_radius` | 18 | 24 | above detection, so the hysteresis still exists |
+| `leash_radius` | 26 | 22 | under the 24 units from its post to the gate |
+| `alert_delay` | 0.5 | 1.0 | a longer, more readable wind-up |
+| `regen_delay` / `regen_per_second` | 6 / 3 | 8 / 12 | leaving the fight resets it |
+| `display_name` | `"Zombie"` | `"Zombie Warlord"` | what the info bar calls it |
+
+Three of those are the design rather than the tuning, and are the ones to argue
+with before touching the rest:
+
+- **The boss out-reaches the hero, where every zombie under-reaches him.** The
+  zombie's 2.0 against his 2.2 is what makes trading blows toe-to-toe *not* a
+  coin flip; inverting it means the boss cannot be out-traded at all and has to
+  be fought by moving. That is the whole encounter, and it is why `chase_speed`
+  is low enough for kiting to work.
+- **`roam_radius = 0` and a leash shorter than the way out make it a guard.**
+  Its post is 6 cells (24 units) from the boss-room gate and it turns back at
+  5.5, so it can never follow the hero out of the room, and there is no wander
+  that could carry it there either. The leash binds before `aggro_radius` does,
+  deliberately.
+- **Breaking off the fight resets it.** Regeneration is state-gated (see above),
+  so kiting inside the room never heals it — only a genuine disengage does, at
+  12 HP/s against the hero's 4. Retreating to heal is therefore a net loss and
+  the fight has to be won in one engagement. The 8 s delay is what keeps a
+  two-second reposition free.
+
+The stats are a first pass and are meant to be argued with: nothing in the game
+was balanced against an end boss before there was one.
+
+**It does not aggro on the frame the hero respawns**, and that is the same
+invariant `scenes/map/` states for spawns rather than a second rule: the boss
+sits 6 cells from the boss-room checkpoint, outside both its own
+`detection_radius` (4.5 cells) and the hero's `acquire_radius`. Moving the
+checkpoint closer, or raising either radius, breaks it.
+
+**Its selection ring is a crescent, not a ring** — issue #49. The ring in
+`scenes/ui/` is one fixed torus of outer radius 0.7, which is exactly the boss's
+body radius, so only the near arc clears the capsule. It still reads; anything
+wider than this will not.
+
 ## Gotchas
 
 - **Sensing is throttled** to one tick per `SENSE_INTERVAL` (0.2 s), and the
@@ -123,9 +190,9 @@ the hero, now that he can deal damage at all (issue #11).
   inside rock becomes the nearest reachable spot instead of a path request that
   resolves to nothing.
 - **The hit flash needs its own material, and `_ready()` duplicates one.** The
-  body material is a sub-resource of `zombie.tscn`, and Godot shares a scene's
-  sub-resources across every instance of it — tinting one zombie would tint the
-  whole horde. `_claim_own_material()` duplicates it per instance. Done in code
+  body material is a sub-resource of the scene — of either scene — and Godot
+  shares a scene's sub-resources across every instance of it, so tinting one
+  zombie would tint the whole horde. `_claim_own_material()` duplicates it per instance. Done in code
   rather than by ticking `resource_local_to_scene` on the resource: an editor
   round-trip can quietly clear a flag, and nothing would fail until someone
   noticed the entire map flashing at once. Anything else that animates a
@@ -157,9 +224,12 @@ the hero, now that he can deal damage at all (issue #11).
   the `enemies` group, without ever naming `Zombie`. So the pair of methods and
   the group name are a two-way contract; changing either signature breaks a
   folder that does not mention this one.
-- Emits `died(zombie)`. Nothing consumes it yet — it is the hook for XP
-  (issue #8). Note the hero emits its own `killed(victim)` from the swing that
-  lands the blow, which is the *attributed* version of the same moment.
+- Emits `died(zombie)`. **`scenes/main.gd` connects it on the boss and on
+  nothing else** (issue #39): one enemy in the level has a death that ends the
+  run, and every other one is still dropped. It remains the hook XP will hang
+  off (issue #8), and the hero still emits his own `killed(victim)` from the
+  swing that lands the blow, which is the *attributed* version of the same
+  moment.
 - **Describes itself to the unit info bar** through `unit_info()` and the
   `display_name` export (per-instance like every stat, so the boss-room guard
   the class docs describe can announce itself without a new scene). The travel
@@ -171,8 +241,11 @@ the hero, now that he can deal damage at all (issue #11).
 - Spawned by `scenes/main.gd` from `LevelMap.zombie_spawns()` — the `Z` cells of
   `scenes/map/level_map.gd`, each carrying the checkpoint segment it belongs to.
   The spawner sets `position` *before* `add_child`, because `_ready()` captures
-  `global_position` as home.
-- **It also removes them** (issue #38): on respawn, every zombie in the restored
+  `global_position` as home. **The boss is placed from `boss_position()` and
+  `boss_segment()` instead**, being one authored instance rather than a list
+  entry — but it lands under the same parent carrying the same segment metadata,
+  which is what lets everything below apply to it unchanged.
+- **It also removes them** (issue #38): on respawn, every enemy in the restored
   segment is freed and re-instanced, living, chasing or already a corpse. That
   is why "restored zombies are home in `ROAM`" needs no reset method here — a
   fresh instance is the reset. Two consequences worth knowing: a zombie can
@@ -180,7 +253,9 @@ the hero, now that he can deal damage at all (issue #11).
   reference to one must survive (`scenes/ui/` does, and says so); and the
   segment lives on the instance as node metadata rather than as anything this
   script knows about, so nothing in here needs to learn about checkpoints.
-- Still a placeholder capsule. The Quaternius zombie models in
-  `assets/characters/zombies/` are imported but unused, matching the hero.
+- Still placeholder capsules, both of them. The Quaternius zombie models in
+  `assets/characters/zombies/` are imported but unused, matching the hero — and
+  the boss has no model of its own at all, so whatever it eventually wears is a
+  separate question from what the horde does.
 
 <!-- verified-against: ac81093 -->

@@ -167,6 +167,17 @@ func boss_position() -> Vector3:
 	return _cell_to_world(_boss_cell)
 
 
+## The stretch of the run the boss cell belongs to (issue #39), on the same
+## rule as a spawn's: the last checkpoint at or before its own path distance.
+##
+## The boss is one authored instance rather than an entry in [method
+## zombie_spawns], so whoever places it has nowhere else to read this from —
+## and without it a respawn would clear the boss away with the rest of its
+## segment and have nothing telling it to put one back.
+func boss_segment() -> int:
+	return _segment_of(_boss_cell)
+
+
 ## Every `Z` cell as `{"position": Vector3, "segment": int}`, in layout order.
 ## Whoever instances the enemies decides what to put there; the map only says
 ## where, and which stretch of the run it belongs to.
@@ -477,12 +488,21 @@ func _group_checkpoints() -> void:
 ## File each spawn under the last checkpoint at or before its own path distance.
 func _assign_spawn_segments() -> void:
 	for cell in _zombie_cells:
-		var distance := _distance_of(cell)
-		var segment := 0
-		for index in _checkpoint_groups.size():
-			if distance >= _distance_of(_checkpoint_groups[index][0]):
-				segment = index
-		_spawn_segments.append(segment)
+		_spawn_segments.append(_segment_of(cell))
+
+
+## The last checkpoint at or before [param cell]'s own path distance.
+##
+## Cached for the spawns because they are asked for as a list, and computed on
+## demand for the boss cell — one rule either way, so the boss can never end up
+## filed by a different one than the zombies standing next to it.
+func _segment_of(cell: Vector2i) -> int:
+	var distance := _distance_of(cell)
+	var segment := 0
+	for index in _checkpoint_groups.size():
+		if distance >= _distance_of(_checkpoint_groups[index][0]):
+			segment = index
+	return segment
 
 
 ## Catch the authoring hazard the segment rule creates.
