@@ -143,4 +143,4 @@ files (it doesn't load the global class cache), so it reports a false
 "Could not find type" on scripts that reference `Hero`, `LevelMap`, or
 `RTSCamera`. Run the scene instead to check those.
 
-<!-- verified-against: fe31cbd -->
+<!-- verified-against: f0a582f -->

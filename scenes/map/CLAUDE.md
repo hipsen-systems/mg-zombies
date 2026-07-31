@@ -85,7 +85,11 @@ paragraph has to be re-checked if it is ever enabled.
   between two open cells never gets one and no edge is ever built twice.
 - **Rock caps** — see the gotcha below.
 - **Zone markers** — flat emissive plates (green start, red boss). Plain
-  `MeshInstance3D`, no collision.
+  `MeshInstance3D`, no collision. **Those two colours are now a constraint on
+  everything else drawn on the floor:** `scenes/ui/` picks its selection ring
+  colours (cyan and orange) specifically to stay legible on top of them, since
+  the hero spawns standing on the green one. Recolouring a marker means
+  re-checking that folder.
 - Public API: `start_position()`, `boss_position()`,
   `zombie_spawn_positions()`, and the `built` signal.
 
@@ -159,4 +163,4 @@ contiguous run of open cells without changing what the player sees.
   ordering is load-bearing — `LevelMap._ready()` runs before `Main._ready()`
   because Godot readies children first, so the geometry exists before the bake.
 
-<!-- verified-against: fe31cbd -->
+<!-- verified-against: f0a582f -->
