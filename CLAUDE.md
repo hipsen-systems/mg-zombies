@@ -26,9 +26,17 @@ Engine configuration (from `project.godot`):
 
 ### Code map
 
-Every folder holding code, and the doc that describes it. This is the one
-inventory the root keeps, and it is checked against the repo — a new code folder
-fails CI until it is listed here.
+Every folder holding game code — `.gd`, `.gdshader`, `.tscn` — and the doc that
+describes it. This is the one inventory the root keeps, and it is checked
+against the repo: a new folder holding any of those three fails CI until it is
+listed here.
+
+Those three extensions are the boundary, not "any code". `.claude/hooks/` holds
+shell scripts and has its own `CLAUDE.md`, and is deliberately absent below: the
+check guarding this table does not read `.sh`, so a row for it would be the one
+entry here that nothing verifies — a claim of exactly the kind the stamp section
+below exists to prevent. Issue #31 read the old wording as a gap in the map; it
+was a gap in this sentence.
 
 | Folder | What lives there |
 |--------|------------------|
@@ -104,6 +112,22 @@ You rarely need to touch it. A commit that changes both a folder's files and its
 doc satisfies the check on its own, so ordinary well-formed work never moves the
 stamp. Bump it when you have *audited* a doc: read it end to end against the
 code and corrected what drifted.
+
+**Land PRs as merge commits — the merge method is load-bearing for the stamp.**
+A stamp names a specific commit, so any history rewrite that discards the
+commits a branch was stamped against breaks it: squashing, rebasing, amending,
+force-pushing. The post-merge `docs-audit` job then fails with `BADSTAMP` on
+`main`, and **nothing on the PR can warn you first** — at check time the stamps
+are valid and the rewritten commit does not exist yet, so the gate is
+structurally blind to it. Not hypothetical: PR #44 was squashed, `main` stayed
+red until #45 repointed four stamps, and none of those docs were wrong — only
+the reference they carried.
+
+Squash and rebase merging are disabled on the repository, so the ordinary route
+can no longer hit this; the rule is written down for what settings cannot cover,
+such as amending or force-pushing a branch after its docs were stamped. If it
+does happen anyway, the repair is to repoint the stamps at the resulting commit.
+Do not re-audit the docs — nothing about them became untrue.
 
 ### What is enforced, and what is not
 
@@ -231,7 +255,7 @@ GitHub Issues is the project backlog. Claude sessions should actively use it:
 
 - **Web build / playable link:** every merge to `main` exports the Web preset and deploys it to GitHub Pages: https://hipsen-systems.github.io/mg-zombies/ — the always-current playable state of the game.
 - **Releases:** pushing a tag like `v0.1.0` builds the Windows exe and attaches it to an auto-created GitHub Release. Tag from an up-to-date `main` only.
-- **PR build check:** every PR must export successfully (`build-check` workflow) before it can merge.
+- **PR build check:** every PR must export successfully (`build-check` workflow) before it can merge. The required status checks on `main` are exactly `docs-check`, `claude-review` and `build-check`. That last one was advisory until issue #30 found this line claiming otherwise; the claim was made true rather than deleted, because with zero required approvals a failed export could otherwise reach the always-current playable link.
 - Export presets live in `export_presets.cfg` (Web has thread support disabled on purpose — required for GitHub Pages; Windows embeds the pck into a single exe). `build/` output is gitignored.
 
 ## GitHub API access
