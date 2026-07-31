@@ -10,7 +10,8 @@ five elements and one of them non-trivial.
 
 - `hud.tscn` / `hud.gd` (`class_name HUD`) — the `CanvasLayer`. Holds the hero's
   health bar (bottom-left), the armed-attack indicator, the controls crib sheet
-  (top-left), the death label, and an instance of the info bar.
+  (top-left), the death screen, the checkpoint confirmation, and an instance of
+  the info bar.
 - `unit_info_bar.tscn` / `unit_info_bar.gd` (`class_name UnitInfoBar`) — the
   bottom-centre panel: name, live HP as `current / max`, and damage / attack
   speed / move speed.
@@ -34,6 +35,11 @@ The hero is selected at startup and selection falls back to him from everything
 else: a click on ground, sky, a wall or a corpse, and the death of whatever was
 selected. There is deliberately no "nothing selected" state — an empty panel is
 dead screen space.
+
+The hero's *own* death is the exception, and it stays that way: the panel holds
+on him, reads 0 through the death screen, and fills again when `scenes/main.gd`
+revives him. It used to be an exception because there was nothing to fall back
+to and the run was about to reload; it is now also the right answer.
 
 ## The unit contract
 
@@ -98,6 +104,31 @@ both an attack and a selection, or as neither, depending on which node
   while an enemy is selected the panel shows the *enemy's* health, and a player
   who cannot see their own mid-fight is worse off than one looking at a
   redundant bar.
+- **The death screen has to come back off** now that a death is a respawn rather
+  than a scene reload (issue #38), which is what `hide_death()` is for. Nothing
+  else here survived being permanent.
+- **A unit can now leave the level without dying**, and that broke an assumption
+  this folder had held since #36. `scenes/main.gd` *removes* the zombies ahead
+  of a checkpoint on respawn, so a `Health` this folder is watching can be freed
+  rather than merely dead — a reference that is non-null and unusable at once.
+  **Both** `UnitSelection._stop_watching()` and `UnitInfoBar._unsubscribe()`
+  therefore test `is_instance_valid`, not `!= null`. Only the first is reachable
+  today; the panel is spared by `scenes/main.gd` redirecting it before it clears
+  anything. That protection lives in another folder, which is exactly why the
+  two are not allowed to differ here — a reader finding one guarded and one not
+  would reasonably conclude the difference meant something.
+- **The checkpoint flash is cancelled when the death screen goes up.** Arming a
+  checkpoint and dying seconds later is not a corner case — a zombie chasing the
+  hero across a threshold produces it — and a "CHECKPOINT" still fading behind
+  "YOU DIED" reads as congratulating the player on the death. Killing the tween
+  is the load-bearing half: it drives `modulate:a`, so hiding the label without
+  it leaves the fade running and re-hiding it a second later, over whatever came
+  next.
+- **`flash_checkpoint()` is the second half of the checkpoint feedback, not the
+  whole of it.** The lit pad in the world is the lasting signal and this is the
+  transient one, for a player watching the fight rather than the floor they just
+  crossed. Both exist because either alone is missable: pads sit at the edge of
+  a one-cell tunnel where the camera barely sees them.
 - `%g` does not exist in GDScript format strings, hence the by-hand trim of a
   trailing `.0` in the stat numbers.
 
@@ -107,10 +138,16 @@ both an attack and a selection, or as neither, depending on which node
   `NodePath`, the way the camera's `target` is.
 - Consumes `Hero.select_clicked`, and `Health.health_changed` / `Health.died` on
   whatever is selected. `scenes/main.gd` also calls `set_hero_health()`,
-  `set_attack_move_armed()` and `show_death()` from the hero's own signals.
+  `set_attack_move_armed()`, `show_death()` / `hide_death()` and
+  `flash_checkpoint()` — the last from `Checkpoint.reached`, the only HUD call
+  that does not originate with the hero.
+- **`scenes/main.gd` re-selects the hero on every respawn**, before it clears
+  the restored segment. That ordering is its concern, not this folder's, but it
+  is the reason a freed selection is rare rather than routine — the
+  `is_instance_valid` guard above is what makes it merely rare and not fatal.
 - Emits `UnitSelection.selection_changed(unit)`, consumed by `HUD` only.
 - **Order matters at startup:** `scenes/main.gd` connects `selection_changed`
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: f0a582f -->
+<!-- verified-against: ac81093 -->

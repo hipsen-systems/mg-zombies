@@ -14,11 +14,21 @@ extends CanvasLayer
 ## enemy's health, and a player who cannot see their own during a fight is worse
 ## off than one looking at a redundant bar.
 
+## How long the checkpoint confirmation holds before it starts fading, and how
+## long the fade takes. Long enough to read mid-fight, short enough that it is
+## gone before the fight the checkpoint was banked for.
+const CHECKPOINT_HOLD := 1.1
+const CHECKPOINT_FADE := 0.7
+
 @onready var _hero_health_bar: ProgressBar = $HeroHealthBar
 @onready var _hero_health_value: Label = $HeroHealthBar/Value
 @onready var _attack_move_label: Label = $AttackMoveLabel
 @onready var _death_label: Label = $DeathLabel
+@onready var _death_sub_label: Label = $DeathSubLabel
+@onready var _checkpoint_label: Label = $CheckpointLabel
 @onready var _unit_info_bar: UnitInfoBar = $UnitInfoBar
+
+var _checkpoint_tween: Tween = null
 
 
 ## Always-visible player health, whatever is selected.
@@ -41,4 +51,40 @@ func set_attack_move_armed(armed: bool) -> void:
 
 
 func show_death() -> void:
+	# Cancel any checkpoint flash still fading. Arming a checkpoint and dying
+	# seconds later is not a corner case — a zombie chasing the hero across a
+	# threshold produces exactly that — and "CHECKPOINT" fading out behind "YOU
+	# DIED" reads as congratulating the player on the death.
+	_clear_checkpoint_flash()
 	_death_label.show()
+	_death_sub_label.show()
+
+
+## Death is no longer the end of the run (issue #38), so the screen has to come
+## back off again.
+func hide_death() -> void:
+	_death_label.hide()
+	_death_sub_label.hide()
+
+
+## Confirm that a checkpoint is now armed.
+##
+## The lit pad in the world is the lasting signal; this is the one that reaches a
+## player who is watching the fight rather than the floor they just crossed.
+func flash_checkpoint() -> void:
+	_clear_checkpoint_flash()
+	_checkpoint_label.modulate.a = 1.0
+	_checkpoint_label.show()
+	_checkpoint_tween = create_tween()
+	_checkpoint_tween.tween_interval(CHECKPOINT_HOLD)
+	_checkpoint_tween.tween_property(_checkpoint_label, "modulate:a", 0.0, CHECKPOINT_FADE)
+	_checkpoint_tween.tween_callback(_checkpoint_label.hide)
+
+
+## Kill a running fade and take the label down. Both callers need the tween
+## stopped first: it drives `modulate:a`, so it would keep animating a hidden
+## label and then re-hide it a second later, over whatever came next.
+func _clear_checkpoint_flash() -> void:
+	if _checkpoint_tween != null and _checkpoint_tween.is_valid():
+		_checkpoint_tween.kill()
+	_checkpoint_label.hide()

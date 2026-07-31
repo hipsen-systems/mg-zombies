@@ -10,13 +10,20 @@ inherited or copy-pasted. Nothing in here knows about a specific actor.
 - `health.gd` (`class_name Health`) — hit points. Added as a `Node` child of
   `hero.tscn` (100 HP) and `zombie.tscn` (30 HP).
   - `@export var max_health`; `current` is set from it in `_ready()`.
-  - `take_damage(amount)` / `heal(amount)` / `is_dead()`.
+  - `take_damage(amount)` / `heal(amount)` / `revive()` / `is_dead()`.
   - Signals: `health_changed(current, maximum)` — emitted on damage *and*
     healing, carrying both numbers so a HUD never has to reach back into the
-    node — and `died`, emitted exactly once when health first reaches zero.
+    node — and `died`, emitted when health reaches zero.
   - Damage and healing on a dead component are ignored. Healing a corpse would
     silently revive it; resurrection should be an explicit decision, not a side
     effect of a heal.
+  - **`revive()` is that explicit decision** (issue #38's checkpoint respawn):
+    full health, whatever the current value. Because it exists, `died` is
+    once-per-*life* rather than once ever — repeated damage on a corpse still
+    cannot re-fire it, but a revived owner killed again will. It deliberately
+    emits nothing of its own beyond `health_changed`: whoever revives an owner
+    is also moving it and clearing its death state, so a signal here would
+    announce a half-finished resurrection.
 
 ## Convention
 
