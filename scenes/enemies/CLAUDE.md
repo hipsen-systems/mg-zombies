@@ -119,12 +119,22 @@ change in `scenes/ui/`, because a unit describes itself to the info bar through
 | `attack_range` | 2.0 | 3.0 | **longer than the hero's 2.2** — see below |
 | `chase_speed` | 3.4 | 2.2 | slow enough that kiting is a real option |
 | `roam_radius` | 6 | 0 | a guard, not a wanderer |
+| `roam_speed` | 1.3 | 1.0 | the walk *back to its post* — see below |
 | `detection_radius` | 12 | 18 | notices the hero ~4.5 cells into the room |
 | `aggro_radius` | 18 | 24 | above detection, so the hysteresis still exists |
 | `leash_radius` | 26 | 22 | under the 24 units from its post to the gate |
 | `alert_delay` | 0.5 | 1.0 | a longer, more readable wind-up |
 | `regen_delay` / `regen_per_second` | 6 / 3 | 8 / 12 | leaving the fight resets it |
 | `display_name` | `"Zombie"` | `"Zombie Warlord"` | what the info bar calls it |
+
+**`roam_speed` is the one that looks inert and is not**, which is worth stating
+because a reader who checks will reach for the wrong conclusion first: with no
+roam radius the boss never walks anywhere in `ROAM`, so the obvious reading is
+that the value is dead and the override pointless. But `RETURN` also travels at
+`roam_speed` — only `CHASE` uses `chase_speed` — so this is the speed the boss
+shambles back to its post at after a leash, which is the *only* time it walks
+without a target. Cross-review of PR #50 read it as unused; a headless run
+measured the boss covering ~1.0 units per second on the way home.
 
 Three of those are the design rather than the tuning, and are the ones to argue
 with before touching the rest:
