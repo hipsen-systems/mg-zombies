@@ -31,7 +31,7 @@ describes it. This is the one inventory the root keeps, and it is checked
 against the repo: a new folder holding any of those three fails CI until it is
 listed here.
 
-Those three extensions are the bound, not "any code". `.claude/hooks/` holds
+Those three extensions are the boundary, not "any code". `.claude/hooks/` holds
 shell scripts and has its own `CLAUDE.md`, and is deliberately absent below: the
 check guarding this table does not read `.sh`, so a row for it would be the one
 entry here that nothing verifies — a claim of exactly the kind the stamp section
