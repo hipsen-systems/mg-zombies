@@ -94,6 +94,12 @@ func show_victory() -> void:
 	# Same reason show_death() does it: a "CHECKPOINT" still fading out under the
 	# end of the run is reading out the wrong moment.
 	_clear_checkpoint_flash()
+	# The death screen is a different case and worth being honest about: it
+	# cannot be up, because scenes/main.gd stops answering a death once the run
+	# is won. Taking it down anyway makes this panel's claim on the screen a rule
+	# of this folder, rather than something true only while a guard in another
+	# folder keeps it true.
+	hide_death()
 	_victory_panel.show()
 	# After show(), which is what makes the button focusable. Enter then works as
 	# well as a click, and by this point nothing else on screen takes input at all.

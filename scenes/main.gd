@@ -170,7 +170,13 @@ func _on_hero_died() -> void:
 		return
 	_hud.show_death()
 	await get_tree().create_timer(RESPAWN_DELAY).timeout
-	if not is_inside_tree():
+	# Tested again on the way out, and the second test is not the first one
+	# repeated: the run can be won *during* this wait, and the timer keeps
+	# counting through the pause a win brings with it. It is unreachable today
+	# only because the hero is the only thing that can damage the boss and he
+	# cannot swing while dead — an invariant about who damages what, written
+	# down nowhere and owned by nobody. This line costs less than resting on it.
+	if not is_inside_tree() or _run_over:
 		return
 	_respawn()
 

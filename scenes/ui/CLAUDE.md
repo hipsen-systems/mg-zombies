@@ -103,6 +103,14 @@ region of the screen the event never leaves. The game being paused makes it
 doubly true here, and neither fact should be relied on alone if a widget is ever
 added that is live during play.
 
+**It takes the screen when it comes up**, cancelling the checkpoint flash and
+hiding the death screen — and the two are not the same case. The flash is
+genuinely reachable: arming a checkpoint and winning seconds later is what a
+boss-room gate produces. The death screen is not, because `scenes/main.gd` stops
+answering a death once the run is won. It is hidden anyway so that *this panel
+owns the screen* is a rule of this folder, rather than something true only while
+a guard in another folder keeps it true.
+
 There is deliberately **no `hide_victory()`**: the only way off that screen is a
 fresh scene, so a path taking it back down would be one no caller could reach.
 The death screen's `hide_death()` is the counter-example that makes the

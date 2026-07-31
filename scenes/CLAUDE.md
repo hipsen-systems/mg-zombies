@@ -108,7 +108,14 @@ what winning *means* belongs here.
 - **Death is ignored once the boss is down.** `_run_over` is set on the boss's
   `died`, before the beat that precedes the screen, because the boss room still
   has zombies in it and the hero is standing in the middle of them. A respawn
-  starting behind the victory screen would take the win back.
+  starting behind the victory screen would take the win back. **It is tested on
+  both sides of the respawn wait**, and the second test is not the first one
+  repeated: a run can be won *during* that wait, and `create_timer` keeps
+  counting through the pause a win brings with it. That half is unreachable
+  today only because the hero is the only thing that can damage the boss and
+  cannot swing while dead — an invariant about who damages what which no folder
+  owns and nothing states. Cross-review of PR #50 asked for the line rather than
+  the invariant, and it was right to.
 - **The beat before the screen is load-bearing, not polish.** A corpse tween is
   bound to the corpse, so pausing on the frame the boss dies leaves it halfway
   through toppling over, underneath a banner saying it is dead.
