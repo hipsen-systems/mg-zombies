@@ -16,7 +16,9 @@ Top-level game scenes and their scripts.
   load-bearing:
   1. the map builds itself in its own `_ready()` (Godot readies children
      first);
-  2. this script places the hero on the map's start cell and snaps the camera;
+  2. this script places the hero on the map's start cell, hands the camera the
+     map's bounds, and snaps it — in that order, because the snap is the frame
+     the player opens on and an unbounded one opens on void (issue #43);
   3. it bakes the navmesh over the geometry that now exists — synchronous
      (`bake_navigation_mesh(false)`) because the web export has threads
      disabled, so don't switch it to on-thread baking. On the open level this
@@ -270,4 +272,4 @@ files (it doesn't load the global class cache), so it reports a false
 "Could not find type" on scripts that reference `Hero`, `LevelMap`, or
 `RTSCamera`. Run the scene instead to check those.
 
-<!-- verified-against: a29d8c3 -->
+<!-- verified-against: 711281c -->
