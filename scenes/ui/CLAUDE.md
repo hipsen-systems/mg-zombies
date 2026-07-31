@@ -10,8 +10,8 @@ five elements and one of them non-trivial.
 
 - `hud.tscn` / `hud.gd` (`class_name HUD`) — the `CanvasLayer`. Holds the hero's
   health bar (bottom-left), the armed-attack indicator, the controls crib sheet
-  (top-left), the death screen, the checkpoint confirmation, and an instance of
-  the info bar.
+  (top-left), the death screen, the checkpoint confirmation, the victory panel
+  (issue #39), and an instance of the info bar.
 - `unit_info_bar.tscn` / `unit_info_bar.gd` (`class_name UnitInfoBar`) — the
   bottom-centre panel: name, live HP as `current / max`, and damage / attack
   speed / move speed.
@@ -74,6 +74,48 @@ while handling the very click that used it — so an armed click would land as
 both an attack and a selection, or as neither, depending on which node
 `_unhandled_input` reached first.
 
+## The victory panel (issue #39)
+
+The boss dies, `scenes/main.gd` calls `show_victory()`, and a "VICTORY" heading,
+a line of text and a **New run** button come up. Three things about it are worth
+knowing before touching it.
+
+**It is the only thing in this folder that sends something back into the game.**
+Everything else here is fed inward by method call; `restart_requested` is a
+signal going the other way, and it carries no argument and no opinion. What
+starting a run *means* is `scenes/main.gd`'s — this folder must not learn.
+
+**The whole tree is paused while it is up, and the panel alone keeps running.**
+Freezing is what makes the run over rather than merely won: the hero stops
+taking orders and the zombies stop chewing on him. But a paused `Control` is
+skipped by GUI input dispatch, so the button would be dead under the cursor.
+`hud.gd` sets `PROCESS_MODE_ALWAYS` on the panel in `_ready()` rather than in
+the scene file, so the reason travels with the line; its children inherit it.
+Anything else that has to work while the game is frozen goes inside that panel
+or gets the same treatment.
+
+**The button is this folder's first interactive `Control`, and it does not
+break the rule above about the left mouse button.** A `Control` consumes a click
+in GUI dispatch, which runs *before* `_unhandled_input`, so `scenes/hero/` never
+sees it and there is no second listener on `select_command` — the arrangement
+that section forbids. A `Button` is not another owner of the button; it is a
+region of the screen the event never leaves. The game being paused makes it
+doubly true here, and neither fact should be relied on alone if a widget is ever
+added that is live during play.
+
+**It takes the screen when it comes up**, cancelling the checkpoint flash and
+hiding the death screen — and the two are not the same case. The flash is
+genuinely reachable: arming a checkpoint and winning seconds later is what a
+boss-room gate produces. The death screen is not, because `scenes/main.gd` stops
+answering a death once the run is won. It is hidden anyway so that *this panel
+owns the screen* is a rule of this folder, rather than something true only while
+a guard in another folder keeps it true.
+
+There is deliberately **no `hide_victory()`**: the only way off that screen is a
+fresh scene, so a path taking it back down would be one no caller could reach.
+The death screen's `hide_death()` is the counter-example that makes the
+difference worth stating rather than assuming.
+
 ## Gotchas
 
 - **The ring is cyan and orange, not the RTS-classic green and red**, and that
@@ -81,8 +123,13 @@ both an attack and a selection, or as neither, depending on which node
   boss cell red as floor markers. A green ring is invisible on the green start
   marker — where the hero stands for the first seconds of every run, exactly
   when the player is working out that the ring means something — and a red ring
-  would vanish the same way once issue #39 puts something selectable on the boss
-  cell. If those markers are recoloured, re-check these.
+  would vanish the same way on the boss cell. If those markers are recoloured,
+  re-check these. **#39 has now put the boss on the red marker and the colour
+  choice held**; what did not is the ring's *size*, which nobody had reason to
+  question while every selectable unit was a 0.4-radius capsule. The torus has
+  an outer radius of 0.7, exactly the boss's body radius, so what a player sees
+  is a crescent at its feet rather than a circle around it — issue #49. It
+  reads; the next unit wider than this one will not.
 - **The ring's material is duplicated in `_ready()`**, for the reason
   `scenes/enemies/` records: a scene's sub-resources are shared between
   instances and this one is recoloured at runtime. One ring exists today; the
@@ -138,9 +185,14 @@ both an attack and a selection, or as neither, depending on which node
   `NodePath`, the way the camera's `target` is.
 - Consumes `Hero.select_clicked`, and `Health.health_changed` / `Health.died` on
   whatever is selected. `scenes/main.gd` also calls `set_hero_health()`,
-  `set_attack_move_armed()`, `show_death()` / `hide_death()` and
-  `flash_checkpoint()` — the last from `Checkpoint.reached`, the only HUD call
-  that does not originate with the hero.
+  `set_attack_move_armed()`, `show_death()` / `hide_death()`,
+  `flash_checkpoint()` and `show_victory()` — the last two from
+  `Checkpoint.reached` and the boss's `Zombie.died`, the only HUD calls that do
+  not originate with the hero.
+- Emits `HUD.restart_requested`, consumed by `scenes/main.gd`. It is the only
+  signal this folder sends into the game rather than draws from it, and it is
+  also what pairs with the pause: that script sets `get_tree().paused`, so it is
+  the one that has to clear it.
 - **`scenes/main.gd` re-selects the hero on every respawn**, before it clears
   the restored segment. That ordering is its concern, not this folder's, but it
   is the reason a freed selection is rare rather than routine — the
@@ -150,4 +202,4 @@ both an attack and a selection, or as neither, depending on which node
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: ac81093 -->
+<!-- verified-against: a29d8c3 -->

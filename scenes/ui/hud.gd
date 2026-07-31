@@ -14,6 +14,11 @@ extends CanvasLayer
 ## enemy's health, and a player who cannot see their own during a fight is worse
 ## off than one looking at a redundant bar.
 
+## Emitted when the player asks for a fresh run from the victory screen (issue
+## #39). Nothing here acts on it: scenes/main.gd owns what a run is, so what
+## "start another one" does is that script's decision and not a widget's.
+signal restart_requested
+
 ## How long the checkpoint confirmation holds before it starts fading, and how
 ## long the fade takes. Long enough to read mid-fight, short enough that it is
 ## gone before the fight the checkpoint was banked for.
@@ -27,8 +32,20 @@ const CHECKPOINT_FADE := 0.7
 @onready var _death_sub_label: Label = $DeathSubLabel
 @onready var _checkpoint_label: Label = $CheckpointLabel
 @onready var _unit_info_bar: UnitInfoBar = $UnitInfoBar
+@onready var _victory_panel: Control = $VictoryPanel
+@onready var _restart_button: Button = $VictoryPanel/RestartButton
 
 var _checkpoint_tween: Tween = null
+
+
+func _ready() -> void:
+	_restart_button.pressed.connect(restart_requested.emit)
+	# The whole tree is paused while the victory panel is up — that is what makes
+	# the run over rather than merely won — and a paused Control is skipped by GUI
+	# input dispatch, which would leave the button dead under the cursor. This is
+	# the one node in the HUD that has to keep running when nothing else does; its
+	# children inherit the mode from it.
+	_victory_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 
 
 ## Always-visible player health, whatever is selected.
@@ -65,6 +82,28 @@ func show_death() -> void:
 func hide_death() -> void:
 	_death_label.hide()
 	_death_sub_label.hide()
+
+
+## The boss is dead and the run is won (issue #39).
+##
+## [b]There is deliberately no hide_victory().[/b] The only way off this screen is
+## a fresh scene, so a path that took it back down would be one no caller could
+## reach — and the death screen's [method hide_death] is the counter-example that
+## makes the distinction worth stating rather than assuming.
+func show_victory() -> void:
+	# Same reason show_death() does it: a "CHECKPOINT" still fading out under the
+	# end of the run is reading out the wrong moment.
+	_clear_checkpoint_flash()
+	# The death screen is a different case and worth being honest about: it
+	# cannot be up, because scenes/main.gd stops answering a death once the run
+	# is won. Taking it down anyway makes this panel's claim on the screen a rule
+	# of this folder, rather than something true only while a guard in another
+	# folder keeps it true.
+	hide_death()
+	_victory_panel.show()
+	# After show(), which is what makes the button focusable. Enter then works as
+	# well as a click, and by this point nothing else on screen takes input at all.
+	_restart_button.grab_focus()
 
 
 ## Confirm that a checkpoint is now armed.

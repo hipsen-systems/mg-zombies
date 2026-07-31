@@ -115,6 +115,13 @@ one — see the contract in `scenes/ui/CLAUDE.md`.
 
 Measured 1v1 against one zombie: ~18 HP lost per kill, ~6 s of fighting.
 
+**The end boss inverts the reach advantage deliberately** (issue #39): its 3.0
+beats his 2.2, where every zombie's 2.0 loses to it. So the row above is a
+baseline meant to be broken by one encounter rather than a rule about all of
+them — standing and trading is a fair fight against a zombie and a lost one
+against the boss, which is the entire difference between the two.
+`scenes/enemies/` holds those numbers and the reasoning.
+
 **Out-of-combat regeneration** starts `regen_delay` after the last combat
 event, where *both* taking a hit and landing one count — a hero trading blows
 never regenerates mid-fight. It was written for issue #38, and #38 has now
@@ -180,8 +187,10 @@ numbers.
 - **`hero.gd` never names an enemy class.** Targets are found through the
   `enemies` group and used through `take_damage()` / `is_dead()`. There is no
   compile-time dependency on `scenes/enemies/`, so a second enemy type needs no
-  change here — but the group name and those two methods are a real runtime
-  contract, which is why `scenes/enemies` is declared in the frontmatter above.
+  change here — **issue #39's boss proved that rather than assumed it**: a whole
+  new scene, ten different stats, and not a line in this folder — but the group
+  name and those two methods are a real runtime contract, which is why
+  `scenes/enemies` is declared in the frontmatter above.
   A missing edge would be invisible; renaming the group would break the hero
   with nothing to catch it.
 - **Every range test measures horizontally, through `_horizontal_distance_to`.**
@@ -225,6 +234,12 @@ numbers.
   swing of the new life wait out the remainder of his last one. Clearing them
   stops that leak; it does not hold him back, it does the reverse.
 
+  **`died` is not a promise of a `respawn_at()`.** Since issue #39 a run can be
+  won, and `scenes/main.gd` ignores a death arriving after the boss has fallen —
+  the hero stays down where he lies while the victory screen comes up and the
+  tree freezes. Nothing in here needs to know that and nothing in here should:
+  this folder reports the death, and the scene decides what it costs.
+
   **What stops him swinging the instant he arrives is not in this folder.** It
   is `scenes/map/`'s rule that no spawn sits within 4 cells of a respawn cell —
   well outside `acquire_radius` (9) — so there is nothing to acquire on the
@@ -256,4 +271,4 @@ numbers.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: 35ada3a -->
+<!-- verified-against: a29d8c3 -->

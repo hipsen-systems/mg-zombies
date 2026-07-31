@@ -1,0 +1,63 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scenes/enemies/zombie.gd" id="1_zombie"]
+[ext_resource type="Script" path="res://scenes/components/health.gd" id="2_health"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+radius = 0.7
+height = 3.0
+
+[sub_resource type="StandardMaterial3D" id="Material_body"]
+albedo_color = Color(0.36, 0.28, 0.44, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_nose"]
+size = Vector3(0.35, 0.35, 0.85)
+
+[sub_resource type="StandardMaterial3D" id="Material_nose"]
+albedo_color = Color(0.85, 0.8, 0.6, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape_body"]
+radius = 0.7
+height = 3.0
+
+[node name="Boss" type="CharacterBody3D" groups=["enemies"]]
+collision_layer = 8
+collision_mask = 7
+script = ExtResource("1_zombie")
+display_name = "Zombie Warlord"
+roam_radius = 0.0
+roam_speed = 1.0
+detection_radius = 18.0
+aggro_radius = 24.0
+leash_radius = 22.0
+alert_delay = 1.0
+chase_speed = 2.2
+attack_range = 3.0
+attack_damage = 25.0
+attack_cooldown = 2.0
+regen_delay = 8.0
+regen_per_second = 12.0
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="BodyMesh" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+mesh = SubResource("CapsuleMesh_body")
+surface_material_override/0 = SubResource("Material_body")
+
+[node name="NoseMesh" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, -0.85)
+mesh = SubResource("BoxMesh_nose")
+surface_material_override/0 = SubResource("Material_nose")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("CapsuleShape_body")
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
+path_desired_distance = 1.0
+target_desired_distance = 1.0
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+max_health = 240.0

@@ -21,9 +21,9 @@ Top-level game scenes and their scripts.
      (`bake_navigation_mesh(false)`) because the web export has threads
      disabled, so don't switch it to on-thread baking. On the open level this
      costs ~55 ms at startup, up from ~12 ms on the maze;
-  4. **then** it lays the checkpoint pads and spawns one zombie per `Z` cell of
-     the map. Enemies path on the navmesh, so they must not exist before the
-     bake.
+  4. **then** it lays the checkpoint pads, spawns one zombie per `Z` cell of
+     the map, and puts the boss on the `B` cell. Enemies path on the navmesh, so
+     they must not exist before the bake.
 - **Enemy spawning** sets `position` *before* `add_child`, because
   `Zombie._ready()` captures `global_position` as the home its roam area and
   leash are measured from. `Enemies` sits at the origin so local and global
@@ -42,6 +42,10 @@ hero's `health_changed`, `attack_move_armed_changed`, `died` and
 `select_clicked` to methods on the two `scenes/ui/` nodes, and connects
 `UnitSelection.selection_changed` to the `HUD`. It never touches a Label. Add UI
 there, not here, and keep it reachable by method rather than by node path.
+
+**One wire runs the other way**: `HUD.restart_requested` into `_restart_run()`.
+The victory screen asks, this script decides — a widget must not be the thing
+that knows what starting a run means.
 
 One ordering rule lives in `_ready()`: `selection_changed` is connected
 **before** `select_unit(_hero)` is called, because the info bar learns the
@@ -82,6 +86,47 @@ belongs to; deciding what a death costs is this folder's.
 - The camera is snapped after the teleport, for the same reason `_ready()` snaps
   after placing the hero, and the info bar is pointed back at him *before* the
   clear: it has no way to notice a unit that is removed rather than killed.
+
+## Winning, and starting again (issue #39)
+
+The boss is the only enemy whose `died` anything listens to, and `main.gd` is
+where the listening happens: this folder already owns what a death costs, so it
+owns what a kill is worth beside it. The screen itself belongs to `scenes/ui/`;
+what winning *means* belongs here.
+
+- **The boss is spawned like a zombie and restored like one.** It comes from
+  `LevelMap.boss_position()` / `boss_segment()` rather than the spawn list,
+  because it is one authored instance — but it is parented under `Enemies` with
+  the same segment metadata, so `_clear_from_segment()` sweeps it up and
+  `_spawn_boss()` puts it back on exactly the terms the zombies around it get.
+  That is what makes dying to the boss a retry: without it a respawn at the gate
+  would clear the boss away and leave a run that cannot be finished.
+- **Winning freezes the tree** (`get_tree().paused`), which is what makes the
+  run *over* rather than merely won — otherwise the hero can still be commanded
+  around, and still killed, behind a VICTORY banner. `scenes/ui/` keeps the
+  victory panel processing so its button still answers.
+- **Death is ignored once the boss is down.** `_run_over` is set on the boss's
+  `died`, before the beat that precedes the screen, because the boss room still
+  has zombies in it and the hero is standing in the middle of them. A respawn
+  starting behind the victory screen would take the win back. **It is tested on
+  both sides of the respawn wait**, and the second test is not the first one
+  repeated: a run can be won *during* that wait, and `create_timer` keeps
+  counting through the pause a win brings with it. That half is unreachable
+  today only because the hero is the only thing that can damage the boss and
+  cannot swing while dead — an invariant about who damages what which no folder
+  owns and nothing states. Cross-review of PR #50 asked for the line rather than
+  the invariant, and it was right to.
+- **The beat before the screen is load-bearing, not polish.** A corpse tween is
+  bound to the corpse, so pausing on the frame the boss dies leaves it halfway
+  through toppling over, underneath a banner saying it is dead.
+- **Restarting reloads the scene, where a death deliberately does not.** The
+  asymmetry is the point: a death has to preserve everything cleared behind the
+  armed checkpoint, which is why issue #38 took the reload *out* of that path;
+  a restart has to discard exactly that. Rebuilding is the only version of
+  "discard all of it" that cannot forget a piece of run state — including the
+  ones not written yet, like issue #8's XP. The pause flag is the exception that
+  proves it: it lives on the `SceneTree` rather than the scene, so `_restart_run`
+  clears it by hand or the new run comes up frozen.
 
 ## Navmesh gotchas (learned the hard way)
 
@@ -157,9 +202,10 @@ describes. See `scenes/enemies/CLAUDE.md`.
 
 - Instances `scenes/map/level_map.tscn`, `scenes/hero/hero.tscn`,
   `scenes/ui/hud.tscn` and `scenes/ui/unit_selection.tscn` from the .tscn, and
-  `scenes/enemies/zombie.tscn` and `scenes/map/checkpoint.tscn` at runtime. Two
-  exports are wired here as `NodePath`s and both point at the hero: the camera's
-  `target` and `UnitSelection.hero`.
+  `scenes/enemies/zombie.tscn`, `scenes/enemies/boss.tscn` and
+  `scenes/map/checkpoint.tscn` at runtime. Two exports are wired here as
+  `NodePath`s and both point at the hero: the camera's `target` and
+  `UnitSelection.hero`.
 - **Input actions** are defined in `project.godot` and every one of them is
   consumed by `scenes/hero/`, not by anything in this folder. What each *means*
   is that folder's to document; this is only the inventory:
@@ -168,15 +214,18 @@ describes. See `scenes/enemies/CLAUDE.md`.
 - `LevelMap` emits `built`; nothing consumes it yet.
 - `main.gd` consumes `Checkpoint.reached` and calls `Checkpoint.set_armed()`
   back on every pad, so exactly one is lit. It calls `Hero.respawn_at()` and, on
-  the way, `HUD.show_death()` / `hide_death()` / `flash_checkpoint()`.
+  the way, `HUD.show_death()` / `hide_death()` / `flash_checkpoint()` —
+  plus `HUD.show_victory()` when the boss falls. It consumes
+  `HUD.restart_requested` in return.
 - `main.gd` consumes `Hero.died`, `Hero.health.health_changed`,
   `Hero.attack_move_armed_changed` and `Hero.select_clicked`, forwarding each to
   `scenes/ui/`. Unconsumed so far: `Hero.move_ordered` and `Hero.attack_ordered`
   — this doc used to earmark them "for the selection UI, issue #36", and that
   turned out to be wrong: selection is deliberately inert and reads nothing
-  about what the hero is doing. They now have no planned consumer. Also
-  unconsumed are both death signals, `Zombie.died` and the hero's attributed
-  `Hero.killed`, which are the XP hooks for issue #8.
+  about what the hero is doing. They now have no planned consumer. `Zombie.died`
+  is consumed **on the boss and nowhere else** (issue #39) — every trash zombie's
+  is still dropped, as is the hero's attributed `Hero.killed`, and both remain
+  the XP hooks for issue #8.
 
 ## Tooling note
 
@@ -185,4 +234,4 @@ files (it doesn't load the global class cache), so it reports a false
 "Could not find type" on scripts that reference `Hero`, `LevelMap`, or
 `RTSCamera`. Run the scene instead to check those.
 
-<!-- verified-against: ac81093 -->
+<!-- verified-against: a29d8c3 -->

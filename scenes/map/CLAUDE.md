@@ -4,8 +4,9 @@ depends-on: [scenes, scenes/hero, assets]
 
 # scenes/map/
 
-The playable map (issues #6, #37) and the checkpoints laid out on it (#38).
-Replaces the 40×40 test arena that `main.tscn` used to carry.
+The playable map (issues #6, #37), the checkpoints laid out on it (#38), and the
+segment the boss cell belongs to (#39). Replaces the 40×40 test arena that
+`main.tscn` used to carry.
 
 - `level_map.tscn` — a bare `Node3D` with `level_map.gd`. All geometry is
   generated at runtime, so the .tscn stays a single node.
@@ -53,6 +54,13 @@ that gap is the only reason he cannot swing on the frame he respawns — his own
 timers are cleared to *full readiness*, deliberately. Shrink the clearance here,
 and the invariant protecting the player is gone with nothing in that folder to
 notice. Issue #9 raising `acquire_radius` does the same from the other end.
+
+**`B` is an enemy placement as well now** (issue #39), so the same clearance
+binds it — and unlike a `Z` cell, nothing checks it:
+`_warn_about_split_segments()` reads `_zombie_cells` only. The boss sits 6 cells
+from its checkpoint, outside its own 4.5-cell detection radius as well as the
+hero's acquire radius, so a respawn at the gate does not start with a charge.
+Moving that checkpoint deeper into the room is the edit that would break it.
 
 Cells are `CELL_SIZE` = 4 units, matching the KayKit dungeon grid: `wall` is
 4×4×1 and `floor_tile_large` is 4×4.
@@ -126,6 +134,14 @@ Three rules make that work, and each is load-bearing:
 `S` is checkpoint 0 and gets no pad: the hero is standing on it before he can
 walk onto anything, and the map already paints it green.
 
+**`B` is filed under a segment too** (`boss_segment()`, issue #39), by the same
+rule and the same code path as a spawn — the boss is one authored instance
+rather than an entry in `zombie_spawns()`, so it is the one thing on the map
+that would otherwise have nowhere to read its segment from. Without it a death
+in the boss room would clear the boss away with the rest of its segment and have
+nothing to put one back, which is the difference between a retry and a run that
+cannot be finished. On the current layout it is segment 2, the boss-room gate.
+
 ### The authoring constraint, and the one place it bit
 
 **A dead-end spur must be shorter than the run from its neck to the next
@@ -166,8 +182,15 @@ rows on is the whole fix, and it costs nothing — no spawn sits between 45 and
   left that collides with neither pair. Its pads are the harder case of the two,
   because a marker is somewhere units *stand*: a selection ring is drawn on top
   of a checkpoint pad every time the pad matters.
-- Public API: `start_position()`, `boss_position()`, `zombie_spawns()`,
-  `checkpoints()`, and the `built` signal.
+
+  **The red marker stopped being the easy case when #39 stood the boss on it.**
+  That was the collision the cyan/orange choice was made against, and it holds:
+  an orange ring on the red plate is legible. What does not hold is the ring's
+  *size* — the boss is as wide as the ring, so what survives is a crescent at
+  its feet rather than a circle around it (issue #49). Colour was the constraint
+  anyone thought to check; scale was the one nobody had needed to.
+- Public API: `start_position()`, `boss_position()`, `boss_segment()`,
+  `zombie_spawns()`, `checkpoints()`, and the `built` signal.
 
 **The map never instances enemies, and it does not instance checkpoints
 either.** It only says where they go; `scenes/main.gd` reads `zombie_spawns()`
@@ -247,8 +270,9 @@ contiguous run of open cells without changing what the player sees.
   `checkpoint.gd` uses none — its pads are `BoxMesh`es, like the zone markers.
 - Instanced by `scenes/main.tscn` under `NavigationRegion3D`; `scenes/main.gd`
   reads `start_position()` to place the hero, bakes the navmesh, and then reads
-  `checkpoints()` and `zombie_spawns()` to lay the pads and populate the map with
-  `scenes/enemies/`. The ordering is load-bearing — `LevelMap._ready()` runs
+  `checkpoints()`, `zombie_spawns()` and the `boss_position()` / `boss_segment()`
+  pair to lay the pads and populate the map with `scenes/enemies/`. The ordering
+  is load-bearing — `LevelMap._ready()` runs
   before `Main._ready()` because Godot readies children first, so the geometry
   exists before the bake.
 - `Checkpoint` emits `reached(index)` and takes `set_armed(bool)` back;
@@ -258,4 +282,4 @@ contiguous run of open cells without changing what the player sees.
   `scenes/hero/`, which is why it is in the frontmatter above. `Checkpoint`
   never names `Hero` as a type.
 
-<!-- verified-against: ac81093 -->
+<!-- verified-against: a29d8c3 -->
