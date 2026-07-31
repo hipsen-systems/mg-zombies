@@ -57,6 +57,9 @@ poking the `NavigationAgent3D`: `command_move_to(point)`,
 Each cancels the previous order outright: the agent repaths and horizontal
 velocity is zeroed so the hero can't coast a frame along the abandoned heading.
 
+`respawn_at(point)` is the one method outside that set that moves him, and it is
+not an order — see below.
+
 ## Which orders acquire targets
 
 Four orders (`IDLE`, `MOVE`, `ATTACK_TARGET`, `ATTACK_MOVE`), and the only
@@ -114,9 +117,10 @@ Measured 1v1 against one zombie: ~18 HP lost per kill, ~6 s of fighting.
 
 **Out-of-combat regeneration** starts `regen_delay` after the last combat
 event, where *both* taking a hit and landing one count — a hero trading blows
-never regenerates mid-fight. It exists for issue #38: without it, clearing a
-fight at low health makes the next one unwinnable and the only remaining move
-is to die on purpose, which is a miserable way to use a checkpoint.
+never regenerates mid-fight. It was written for issue #38, and #38 has now
+landed: without it, clearing a fight at low health makes the next one unwinnable
+and the only remaining move is to die on purpose, which is a miserable way to
+use a checkpoint. It is what stops the respawn below being the healing mechanic.
 
 **The gate is time only, where the zombie's is time *and* state.** That
 asymmetry is deliberate, not an oversight — cross-review raised it. A chasing
@@ -203,6 +207,18 @@ numbers.
   `_dead`, drops every order, and emits `died`; while dead he ignores input and
   holds position (gravity still runs). `is_dead()` is public so a zombie stops
   swinging at a corpse.
+- **Death is no longer terminal (issue #38).** `respawn_at(point)` revives him
+  in place rather than reloading the scene, because the run around him survives:
+  everything cleared behind the armed checkpoint stays cleared. So `died` now
+  fires once per *death*, not once per run, and every piece of state a death
+  leaves behind has to be undone in one place — the death flag, the orders, the
+  armed attack command, the carried velocity, and the three timers. Two of those
+  are easy to miss and were: **the attack cooldown**, which would otherwise let
+  him swing the instant he lands, and **the nav agent's target**, which nothing
+  else clears — leave it and the first order of the new life is judged finished
+  or not against a destination from the previous one. `Health.revive()` is
+  called last, so `health_changed` reaches the HUD with the hero already alive
+  and standing where he belongs.
 
 ## Dependencies
 
@@ -221,8 +237,9 @@ numbers.
   fired from the swing that lands the killing blow so attribution is exact
   rather than "something died". Emits `attack_move_armed_changed(armed)`, which
   `scenes/main.gd` consumes to show the armed-attack indicator, and `died`,
-  which `scenes/main.gd` consumes to restart the run. Consumes `Health.died`
-  from its own child.
+  which `scenes/main.gd` answers with `respawn_at()` at the armed checkpoint.
+  Consumes `Health.died` from its own child, and calls `Health.revive()` on the
+  way back.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 

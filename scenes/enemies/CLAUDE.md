@@ -147,6 +147,11 @@ the hero, now that he can deal damage at all (issue #11).
 - Finds the hero via `get_tree().get_first_node_in_group("hero")` — no scene
   path, so a zombie works in any scene that has a hero and a baked navmesh.
 - Calls `Hero.take_damage()`; reads `Hero.is_dead()` to stop hitting a corpse.
+  **Since issue #38 a corpse can stop being one** — the hero respawns rather
+  than reloading the scene — and nothing here needed changing for it, because
+  every state reads `is_dead()` fresh on its own sense tick rather than latching
+  a death. A zombie left in `ATTACK` when he died finds him alive again but far
+  away on the next tick, so it leashes home the ordinary way.
 - **Is damaged by the hero through the same two methods, in reverse.**
   `scenes/hero/` calls `take_damage()` and reads `is_dead()` on whatever is in
   the `enemies` group, without ever naming `Zombie`. So the pair of methods and
@@ -163,9 +168,18 @@ the hero, now that he can deal damage at all (issue #11).
   nothing to it — `scenes/ui/` never issues an order. That folder also watches
   the `Health` child's `died` so the bar drops a corpse, which is why it is in
   the frontmatter above.
-- Spawned by `scenes/main.gd` at the `Z` cells of `scenes/map/level_map.gd`; the
-  spawner sets `position` *before* `add_child`, because `_ready()` captures
+- Spawned by `scenes/main.gd` from `LevelMap.zombie_spawns()` — the `Z` cells of
+  `scenes/map/level_map.gd`, each carrying the checkpoint segment it belongs to.
+  The spawner sets `position` *before* `add_child`, because `_ready()` captures
   `global_position` as home.
+- **It also removes them** (issue #38): on respawn, every zombie in the restored
+  segment is freed and re-instanced, living, chasing or already a corpse. That
+  is why "restored zombies are home in `ROAM`" needs no reset method here — a
+  fresh instance is the reset. Two consequences worth knowing: a zombie can
+  leave the tree without `died` ever firing, which is what anything holding a
+  reference to one must survive (`scenes/ui/` does, and says so); and the
+  segment lives on the instance as node metadata rather than as anything this
+  script knows about, so nothing in here needs to learn about checkpoints.
 - Still a placeholder capsule. The Quaternius zombie models in
   `assets/characters/zombies/` are imported but unused, matching the hero.
 

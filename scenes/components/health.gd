@@ -13,8 +13,9 @@ extends Node
 ## draw a bar without reaching back into this node.
 signal health_changed(current: float, maximum: float)
 
-## Emitted once, when health first reaches zero. Never re-emitted: further
-## damage on a corpse is ignored.
+## Emitted when health reaches zero. Once per life: further damage on a corpse is
+## ignored, so it cannot fire twice — but a component put back on its feet by
+## [method revive] can emit it again the next time it is killed.
 signal died
 
 @export var max_health := 100.0
@@ -45,4 +46,15 @@ func heal(amount: float) -> void:
 	if is_dead() or amount <= 0.0:
 		return
 	current = minf(current + amount, max_health)
+	health_changed.emit(current, max_health)
+
+
+## Put a dead owner back on its feet at full health (issue #38's checkpoint
+## respawn). The explicit decision [method heal] refuses to make for you.
+##
+## Deliberately does not emit anything of its own. Whoever revives an owner is
+## the one moving it, healing it and clearing its death state, so a signal here
+## would announce a half-finished resurrection.
+func revive() -> void:
+	current = max_health
 	health_changed.emit(current, max_health)

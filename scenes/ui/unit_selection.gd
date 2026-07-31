@@ -122,15 +122,20 @@ func _start_watching() -> void:
 		_health.died.connect(_on_selected_died)
 
 
+## is_instance_valid, not a null check: a unit can now leave the level without
+## dying — scenes/main.gd removes the ones ahead of a checkpoint on respawn — and
+## a freed Health is a reference that is non-null and unusable at the same time.
 func _stop_watching() -> void:
-	if _health != null and _health.died.is_connected(_on_selected_died):
+	if is_instance_valid(_health) and _health.died.is_connected(_on_selected_died):
 		_health.died.disconnect(_on_selected_died)
 	_health = null
 
 
 ## The selected unit died, so the bar would be showing a corpse. Fall back to
 ## the hero — except when it *is* the hero, where there is nothing to fall back
-## to and scenes/main.gd is already restarting the run.
+## to. Staying on him is also the right answer now that a death is a respawn
+## rather than a reload (issue #38): the panel reads 0 through the death screen
+## and fills again when scenes/main.gd revives him, with no reselection needed.
 func _on_selected_died() -> void:
 	if _selected == hero:
 		return

@@ -58,7 +58,9 @@ signal attack_move_armed_changed(armed: bool)
 ## first would depend on the order _unhandled_input walks the tree.
 signal select_clicked(screen_point: Vector2)
 
-## Emitted once when the hero's health hits zero. scenes/main.gd listens.
+## Emitted when the hero's health hits zero. scenes/main.gd listens, and answers
+## it with [method respawn_at] rather than a scene reload (issue #38), so this
+## fires once per death and not once per run.
 signal died
 
 ## What the hero is currently under orders to do.
@@ -193,6 +195,32 @@ func unit_info() -> Dictionary:
 		"attack_cooldown": attack_cooldown,
 		"move_speed": move_speed,
 	}
+
+
+## Come back at [param point] with full health, ready to take orders (issue #38).
+##
+## The hero is revived in place rather than rebuilt, because the run around him
+## survives his death: everything cleared behind the armed checkpoint stays
+## cleared, so there is no scene to reload. Every piece of state a death leaves
+## behind is reset here — the death flag, the orders, the armed attack command,
+## the carried velocity, and the three timers, one of which would otherwise let
+## him swing the instant he lands.
+func respawn_at(point: Vector3) -> void:
+	_dead = false
+	_clear_orders()
+	_set_attack_move_armed(false)
+	velocity = Vector3.ZERO
+	global_position = point
+	# The agent is still holding the path he was walking when he died, and
+	# nothing else clears it: leave it and the first order after the respawn is
+	# judged finished or not against a destination from the previous life.
+	_nav_agent.target_position = point
+	_attack_timer = 0.0
+	_retarget_timer = 0.0
+	_regen_timer = 0.0
+	# Last, so health_changed reaches the HUD with the hero already alive and
+	# standing where he belongs.
+	health.revive()
 
 
 ## What the hero is currently doing, for the HUD and for tests.
