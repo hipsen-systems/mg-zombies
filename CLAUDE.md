@@ -26,7 +26,7 @@ Engine configuration (from `project.godot`):
 
 ### Code map
 
-Every folder holding game code — `.gd`, `.gdshader`, `.tscn` — and the doc that
+Every folder holding `.gd`, `.gdshader` or `.tscn` files, and the doc that
 describes it. This is the one inventory the root keeps, and it is checked
 against the repo: a new folder holding any of those three fails CI until it is
 listed here.
@@ -47,6 +47,7 @@ was a gap in this sentence.
 | [`scenes/map/`](scenes/map/CLAUDE.md) | The level map and its generation |
 | [`scenes/ui/`](scenes/ui/CLAUDE.md) | The HUD, the unit info bar, and unit selection |
 | [`assets/`](assets/CLAUDE.md) | Third-party CC0 art and the licence record |
+| [`tests/`](tests/CLAUDE.md) | Headless smoke tests that drive the real scenes |
 
 ## Game design
 
@@ -237,9 +238,15 @@ Common invocations (from the repo root), abbreviating the binary as `$GODOT`:
 
 # Syntax-check a single GDScript file without running the game
 "$GODOT" --headless --path . --check-only --script res://path/to/script.gd
+
+# Run the headless smoke tests (~5 s)
+bash tests/run.sh "$GODOT"
 ```
 
-There is no test framework (e.g. GUT, gdUnit4) installed.
+There is still no test framework (e.g. GUT, gdUnit4) installed, and issue #16
+settled that there does not need to be one: [`tests/`](tests/CLAUDE.md) holds
+smoke tests written as plain `SceneTree` scripts, which the engine runs by
+itself. That folder's doc owns how they work and how to add one.
 
 ## Backlog & issues
 
@@ -255,7 +262,8 @@ GitHub Issues is the project backlog. Claude sessions should actively use it:
 
 - **Web build / playable link:** every merge to `main` exports the Web preset and deploys it to GitHub Pages: https://hipsen-systems.github.io/mg-zombies/ — the always-current playable state of the game.
 - **Releases:** pushing a tag like `v0.1.0` builds the Windows exe and attaches it to an auto-created GitHub Release. Tag from an up-to-date `main` only.
-- **PR build check:** every PR must export successfully (`build-check` workflow) before it can merge. The required status checks on `main` are exactly `docs-check`, `claude-review` and `build-check`. That last one was advisory until issue #30 found this line claiming otherwise; the claim was made true rather than deleted, because with zero required approvals a failed export could otherwise reach the always-current playable link.
+- **PR build check:** every PR must export successfully *and* pass the headless smoke tests in [`tests/`](tests/CLAUDE.md) (`build-check` workflow) before it can merge. The required status checks on `main` are exactly `docs-check`, `claude-review` and `build-check`. That last one was advisory until issue #30 found this line claiming otherwise; the claim was made true rather than deleted, because with zero required approvals a failed export could otherwise reach the always-current playable link. Issue #16 added the tests as a *step* of that same job rather than a job of their own, deliberately: a new job would be a new status check to require, and the list above would have gone stale in the one place — live GitHub settings — where nothing checks it (issue #52).
+- Test scripts are excluded from both export presets, so nothing in `tests/` ships in the web build or the release exe.
 - Export presets live in `export_presets.cfg` (Web has thread support disabled on purpose — required for GitHub Pages; Windows embeds the pck into a single exe). `build/` output is gitignored.
 
 ## GitHub API access
