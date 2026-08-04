@@ -138,4 +138,4 @@ API from `scenes/map/`, and the `health` component's `current`/`max_health` from
 `scenes/components/`. It reads no `scenes/ui/` node: nothing here asserts
 anything about the screen.
 
-<!-- verified-against: 200ccec -->
+<!-- verified-against: 6958cf7 -->
