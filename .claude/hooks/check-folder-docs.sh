@@ -13,6 +13,7 @@
 #                    the root doc's only volatile claim, made checkable.
 #
 #   C. verification  Every folder doc carries a `verified-against: <sha>` stamp,
+#                    the stamp names a commit the claim could have been made at,
 #                    and no commit since that sha touched the folder without
 #                    also touching the doc. Catches everything that bypasses A:
 #                    history predating these hooks, merge-conflict resolutions,
@@ -163,6 +164,25 @@ check_verification() {
       echo "            verified-against: $stamp is not a commit in this repository"
       continue
     fi
+    # Two ways a stamp names a real commit and is still impossible on its face,
+    # and the check below cannot see either: it asks "did this folder change
+    # since the stamp without the doc changing?", which a stamp from before the
+    # folder existed passes trivially — there are no such commits, because there
+    # was no such folder (issue #35, found on `scenes/components/` in review of
+    # #20). A stamp is the only human claim in this repo, so one that could not
+    # have been earned is worse than one that is merely old.
+    if ! git cat-file -e "${stamp}:${d}" 2>/dev/null; then
+      echo "PREDATES    $doc"
+      echo "            verified-against: $stamp — $d/ does not exist at that"
+      echo "            commit, so nothing can have been read against it there"
+      continue
+    fi
+    if ! git merge-base --is-ancestor "$stamp" HEAD 2>/dev/null; then
+      echo "UNREACHABLE $doc"
+      echo "            verified-against: $stamp is not an ancestor of HEAD — it"
+      echo "            is not a state this branch was ever checked against"
+      continue
+    fi
 
     offenders=$(unaccompanied_commits "$d" "$stamp")
     [ -n "$offenders" ] || continue
@@ -183,14 +203,34 @@ check_verification() {
 # anything it depends on did. That is the drift nothing else catches: change the
 # navmesh settings in scenes/ and scenes/map/CLAUDE.md can silently stop being
 # true, because its own folder never moved.
-# Frontmatter body only: line 2 through the first closing `---`. NOT a
-# /^---$/,/^---$/ range — sed restarts a range at every later match, so a
-# markdown horizontal rule further down the file reopens it and any prose line
-# beginning `depends-on:` is read as a real edge. That is the self-reference
-# trap again, in a third form: a doc explaining this convention would be
-# misparsed by the parser it explains. Callers check line 1 is `---` first.
+# Frontmatter body only: line 2 through the first closing `---`. Two sed idioms
+# are deliberately not used, and they are the same self-reference trap in two
+# guises — a doc explaining this convention misparsed by the parser it explains:
+#
+#   /^---$/,/^---$/   a range restarts at every later match, so a markdown
+#                     horizontal rule reopens the block and any prose line
+#                     beginning `depends-on:` is read as a real edge.
+#   2,/^---$/         with no closing `---` at all this reads to end of file,
+#                     which is the same failure by another route (issue #34).
+#
+# So the close is required rather than assumed: frontmatter_closed answers
+# whether there is a block, frontmatter prints the body only when there is one.
+# Callers must report its absence — treating the empty output as "declares no
+# dependencies" would be this check's own failure mode inside its parser, which
+# is the same reason the bracket form is demanded below.
+frontmatter_closed() {
+  awk 'NR == 1 { if ($0 != "---") exit 1; next }
+       $0 == "---" { closed = 1; exit }
+       END { exit (closed ? 0 : 1) }' "$1"
+}
+
+frontmatter() {
+  frontmatter_closed "$1" || return 0
+  awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$1"
+}
+
 declared_deps() {
-  sed -n '2,/^---$/p' "$1" \
+  frontmatter "$1" \
     | sed -n 's/^depends-on:[[:space:]]*\[\(.*\)\].*/\1/p' \
     | tr ',' '\n' \
     | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
@@ -221,15 +261,29 @@ check_graph() {
 
     # Three ways this goes wrong, and every one of them has to be loud. A
     # missing block is obvious, and a block omitting the key nearly so. The
-    # third is not: an unbracketed `depends-on: scenes` satisfies a bare key
-    # test, while declared_deps extracts nothing from it -- so the doc reads as
-    # having no dependencies, indistinguishable from a deliberate `[]`, and no
-    # BADDEP or DEPSTALE can ever fire for it. That is this check's own failure
-    # mode reproduced inside its parser, so the gate demands the bracket form.
-    if ! sed -n '1p' "$doc" | grep -qx -- '---' \
-       || ! sed -n '2,/^---$/p' "$doc" | grep -q '^depends-on:[[:space:]]*\[.*\]'; then
+    # third is not: an unbracketed `depends-on: scenes`, or a list wrapped over
+    # several lines, satisfies a bare key test while declared_deps extracts
+    # nothing from it -- so the doc reads as having no dependencies,
+    # indistinguishable from a deliberate `[]`, and no BADDEP or DEPSTALE can
+    # ever fire for it. That is this check's own failure mode reproduced inside
+    # its parser, so the gate demands the single-line bracket form. Each case
+    # gets its own words: a message naming the wrong fault sends the reader to
+    # look for a key that is plainly there (issue #34).
+    if ! frontmatter_closed "$doc"; then
       echo "NOFRONT     $doc"
-      echo "            no 'depends-on: [...]' key in a frontmatter block on line 1"
+      echo "            no frontmatter block — line 1 must be '---' and a later"
+      echo "            line must close it"
+      continue
+    fi
+    front=$(frontmatter "$doc")
+    if ! printf '%s\n' "$front" | grep -q '^depends-on:[[:space:]]*\[.*\]'; then
+      echo "NOFRONT     $doc"
+      if printf '%s\n' "$front" | grep -q '^depends-on:'; then
+        echo "            depends-on: is present but is not a single-line"
+        echo "            '[a, b]' list; no other form is parsed"
+      else
+        echo "            no 'depends-on: [...]' key in the frontmatter block"
+      fi
       continue
     fi
 
@@ -286,6 +340,8 @@ problems=$(
   echo "            doc's claims rest on:  ---\\ndepends-on: [scenes, assets]\\n---"
   echo "            Declaring none is 'depends-on: []' — an explicit claim, not"
   echo "            an omitted key, which nothing could tell from forgetting."
+  echo "            The list must sit on one line: a wrapped array parses as"
+  echo "            no dependencies at all, which is why it is refused here."
   echo "SELFDEP     drop the self-reference; a folder does not depend on itself."
   echo "BADDEP      the named folder has no CLAUDE.md — fix the name or add the doc."
   echo "DEPSTALE    a folder this doc depends on changed. Re-read this doc against"
@@ -293,6 +349,12 @@ problems=$(
   echo "            no longer holds, then bump this doc's stamp. This is the check"
   echo "            that catches drift arriving from outside the folder."
   echo "NOSTAMP     append to the doc:  <!-- verified-against: \$(git rev-parse --short HEAD) -->"
+  echo "BADSTAMP    the sha does not resolve — history was rewritten under it"
+  echo "PREDATES    (squash, rebase, amend, force-push). Repoint the stamp at the"
+  echo "UNREACHABLE resulting commit; do not re-audit, nothing became untrue."
+  echo "            PREDATES and UNREACHABLE also catch a sha copied from"
+  echo "            elsewhere in the history rather than earned: stamp at the"
+  echo "            HEAD you actually read the doc against, and nowhere else."
   echo "UNVERIFIED  read the listed commits against the doc, correct whatever no"
   echo "            longer holds, then bump the stamp to the current HEAD. Bump it"
   echo "            only once the doc is actually true — the stamp is a claim that"

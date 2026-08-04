@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/components, scenes/enemies, scenes/ui, assets]
+depends-on: [scenes, scenes/components, scenes/enemies, scenes/map, scenes/ui, assets]
 ---
 
 # scenes/hero/
@@ -240,13 +240,26 @@ numbers.
   tree freezes. Nothing in here needs to know that and nothing in here should:
   this folder reports the death, and the scene decides what it costs.
 
-  **What stops him swinging the instant he arrives is not in this folder.** It
-  is `scenes/map/`'s rule that no spawn sits within 4 cells of a respawn cell —
-  well outside `acquire_radius` (9) — so there is nothing to acquire on the
-  frame he comes back. That is the invariant to re-check if a checkpoint is ever
-  placed with less clearance, or if issue #9 grows these radii. Cross-review
-  caught this stated backwards: the code was right and the reason attached to it
-  was inverted, which is the same failure the doc lesson on #36 records.
+  **What stops him swinging the instant he arrives is not in this folder**, and
+  that is the second claim here resting on `scenes/map/` — the rock caps above
+  are the first, which is why it is in the frontmatter. It
+  is `scenes/map/`'s rule that nothing a respawn *restores* stands within 4 cells
+  of the cell it puts him on — 16 units, well outside `acquire_radius` (9) — so
+  there is nothing to acquire on the frame he comes back. That is the invariant
+  to re-check if a checkpoint is ever placed with less clearance, or if issue #9
+  grows these radii. Cross-review caught this stated backwards: the code was
+  right and the reason attached to it was inverted, which is the same failure the
+  doc lesson on #36 records.
+
+  **Restored is the load-bearing word, and it was missing here until issue
+  #54.** The rule reads as covering every placement on the map, and that version
+  is false: one zombie stands 3 cells from the boss gate. It is behind the gate,
+  in an earlier segment, so a respawn there does not put it back — which is why
+  the invariant above survives unchanged. What it does not promise is the frame
+  *after*: a zombie the player walked past is still standing wherever it was
+  left, and at 12 units it is exactly on its own detection radius while he
+  cannot answer until 9. Being charged a second later is a fight; being swung at
+  on arrival is what this rule prevents.
 
 ## Dependencies
 
@@ -271,4 +284,4 @@ numbers.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: 711281c -->
+<!-- verified-against: 091dfa6 -->

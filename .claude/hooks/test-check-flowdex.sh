@@ -50,6 +50,13 @@ read_only="{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_us
 merged="{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"name\":\"Bash\",\"input\":{\"command\":\"${merge_cmd} 23 --squash\"}}]}}"
 # A tool-listing / schema mention: the tool name appears, but never as a call.
 mention="{\"type\":\"tool_result\",\"content\":[{\"type\":\"tool_reference\",\"tool_name\":\"${write_tool}\"}]}"
+# The same thing in the other shape a listing arrives in: a schema quoted as
+# *text*, so its quotes are JSON-escaped and the call pattern cannot reach them.
+# The hook's comment names three ways a name reaches a transcript without being
+# a call; this pins the one that is not a key at all. It is only safe to write
+# out because the escaped form is not the matched form — read_the_tests below
+# is what proves that, by feeding this file to the hook and demanding a 0.
+schema_text="{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\",\"content\":\"<function>{\\\"name\\\": \\\"${write_tool}\\\"}</function>\"}]}}"
 
 mk() { local name=$1; shift; printf '%s\n' "$@" > "$TMP/$name.jsonl"; }
 
@@ -62,6 +69,7 @@ mk read_only         "$avail" "$read_only"
 mk scratchpad_only   "$avail" "$edit_scratch"
 mk licenses_only     "$avail" "$edit_lic"
 mk mention_not_call  "$avail" "$edit_gd" "$mention"
+mk schema_as_text    "$avail" "$edit_gd" "$schema_text"
 
 # The regression that shipped: a session holding this hook's own text must not
 # be read as having merged a PR or written anything back. Grep is line-based,
@@ -96,6 +104,7 @@ check no_writeback      2 "code edited, nothing written back"
 check merged_no_write   2 "PR merged, nothing written back"
 check licenses_only     2 "only LICENSES.md edited"
 check mention_not_call  2 "tool named but never called"
+check schema_as_text    2 "schema quoted as escaped text, never called"
 echo
 echo "stays out of the way when it should:"
 check wrote_back        0 "code edited and written back"

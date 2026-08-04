@@ -213,11 +213,14 @@ func unit_info() -> Dictionary:
 ## them means the opposite of a delay: he lands fully ready.
 ##
 ## What actually stops him swinging the moment he arrives is not here at all.
-## It is the map's rule that no spawn sits within 4 cells of a respawn cell (see
-## scenes/map/CLAUDE.md), which is well outside [member acquire_radius], so there
-## is nothing to acquire on the frame he comes back. That is the invariant to
-## re-check if a checkpoint is ever placed with less clearance, or if issue #9
-## grows the radii — not this reset.
+## It is the map's rule that nothing a respawn [i]restores[/i] stands within 4
+## cells of the cell it puts him on (see scenes/map/CLAUDE.md), which is well
+## outside [member acquire_radius], so there is nothing to acquire on the frame
+## he comes back. Restored is load-bearing, and issue #54 is where it got added:
+## stated over every placement the rule is false, and one zombie behind the boss
+## gate is the counterexample. That is the invariant to re-check if a checkpoint
+## is ever placed with less clearance, or if issue #9 grows the radii — not this
+## reset.
 func respawn_at(point: Vector3) -> void:
 	_dead = false
 	_clear_orders()

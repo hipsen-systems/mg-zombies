@@ -82,7 +82,7 @@ const EDGES := [
 ## Zombie spawns (`Z`) are kept well clear of the start cell: a zombie inside
 ## its own detection radius (12 units = 3 cells) of `S` would charge the hero
 ## the moment the run begins, before the player has taken a single step. The
-## nearest one here is 7 cells away.
+## nearest one here is 6 cells away.
 ##
 ## [b]That rule binds every `C` cell the hero can respawn on too[/b], and it is
 ## sharper there, because the zombies ahead of a checkpoint are restored to their
@@ -90,8 +90,15 @@ const EDGES := [
 ## every time, on a player who has just lost a fight. Both checkpoints here were
 ## moved to earn it: this one back into the tunnel (it sat at the mouth, one cell
 ## from a spawn) and the boss-room guard four cells deeper into its room (it
-## stood in the doorway the gate covers). Nothing is now within 4 cells of a
-## respawn cell.
+## stood in the doorway the gate covers).
+##
+## [b]So the rule is over what a respawn restores, not over every placement[/b]
+## (issue #54): nothing in segment `k` or later stands within 4 cells of where
+## checkpoint `k` puts the hero, and this map meets that exactly, twice. Written
+## the broader way it is simply false here — a segment-1 zombie sits 3 cells from
+## the boss gate, on the far side of it, and is not something a respawn there
+## puts back. `tests/smoke_startup.gd` measures the restored form on every run;
+## CLAUDE.md carries what the gap between the two does and does not cover.
 ##
 ## The two checkpoints sit on the only places every route passes through that are
 ## *also* late enough to be worth reaching: inside the one-cell tunnel (24 from

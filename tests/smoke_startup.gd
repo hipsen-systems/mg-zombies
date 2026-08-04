@@ -14,11 +14,18 @@ extends "res://tests/harness.gd"
 ## and the hero jittered in place, with every static check passing.
 ##
 ## [b]It also checks a map rule that nothing else can.[/b] `scenes/map/` requires
-## that no enemy spawns within 4 cells of a cell the hero can respawn on, and
-## `scenes/hero/` leans on that number: it is the only reason he cannot be swung
-## at on the frame he comes back. The map's own build-time warning reads the
-## spawn list, so it covers `Z` cells and cannot cover the boss — which is
-## exactly the placement that would be moved by someone tuning the last fight.
+## that nothing a respawn restores stands within 4 cells of the cell it lands the
+## hero on, and `scenes/hero/` leans on that number: it is the only reason he
+## cannot be swung at on the frame he comes back. The map's own build-time
+## warning reads the spawn list, so it covers `Z` cells and cannot cover the boss
+## — which is exactly the placement that would be moved by someone tuning the
+## last fight.
+##
+## [b]Restored is the word this file had right and the docs had wrong[/b] (issue
+## #54). The check below was always per-checkpoint over segment >= that
+## checkpoint; three folder docs stated it over every placement, which the
+## current map does not satisfy — a segment-1 zombie sits 3 cells from the boss
+## gate. The docs were corrected to the form measured here.
 
 ## Half a cell. The hero is dropped from `SPAWN_CLEARANCE` above the start cell
 ## and settles under gravity, so "on the start cell" is horizontal.

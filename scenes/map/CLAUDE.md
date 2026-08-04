@@ -45,8 +45,33 @@ player has taken a step. That used to mean `S` alone; since #38 it means every
 of the checkpoint *to their spawns*, so a spawn too close arrives with the hero,
 every time, on a player who has just lost a fight. Both checkpoints on the
 current map were moved to earn that clearance, and the boss-room guard was moved
-four cells deeper into its room for the same reason. Nothing is now within 4
-cells of a respawn cell; the nearest to `S` is 7.
+four cells deeper into its room for the same reason.
+
+**The rule is over what a respawn *restores*, and only that** (issue #54).
+Nothing in segment *k* or later stands within 4 cells of where checkpoint *k*
+puts the hero. The current map meets it exactly — 4.00 cells at both the tunnel
+and the boss gate — and the start cell has 6. Measured straight-line and
+horizontally from `checkpoints()[k][0]`, which is the cell he actually lands on;
+the path distances quoted elsewhere in this doc are a different metric and run
+longer.
+
+**Say which metric, every time.** The `layout` docstring said "the nearest to
+`S` is 7" beside a clearance rule expressed in straight-line cells, and the two
+figures describe the same pair of cells: 7 by the flood-fill that cuts the
+segments, 6.08 straight-line. Neither was wrong and the pair is unreadable
+together, which is half of how #54's overstatement survived being read.
+Clearance is always straight-line, because it is about what can *see* the hero;
+segment distances are always path, because they are about what he had to walk.
+
+Stating it over *every* placement instead is the overstatement #54 found, and
+the map does not satisfy that version: a segment-1 zombie stands 3 cells from
+the boss gate, behind it. What the narrower rule leaves uncovered is small and
+worth knowing. That zombie is not put back by a respawn there — but if the
+player walked past it on the way in, it is still standing 12.0 units away, which
+is exactly its own detection radius, so it can notice a hero who has just come
+back. He cannot answer first: his `acquire_radius` is 9. The invariant
+`scenes/hero/` leans on still holds, because that is about what he can acquire
+on the frame he lands, not about what can walk up to him afterwards.
 
 **`scenes/hero/` leans on that number**, so it is a contract and not just good
 practice. 4 cells is 16 units, comfortably outside his `acquire_radius` of 9, and
@@ -54,13 +79,16 @@ that gap is the only reason he cannot swing on the frame he respawns — his own
 timers are cleared to *full readiness*, deliberately. Shrink the clearance here,
 and the invariant protecting the player is gone with nothing in that folder to
 notice. Issue #9 raising `acquire_radius` does the same from the other end.
+`tests/smoke_startup.gd` measures it on every run, in the restored-only form, so
+the contract is checked rather than remembered — and there is no slack in it.
 
 **`B` is an enemy placement as well now** (issue #39), so the same clearance
-binds it — and unlike a `Z` cell, nothing checks it:
-`_warn_about_split_segments()` reads `_zombie_cells` only. The boss sits 6 cells
-from its checkpoint, outside its own 4.5-cell detection radius as well as the
-hero's acquire radius, so a respawn at the gate does not start with a charge.
-Moving that checkpoint deeper into the room is the edit that would break it.
+binds it — and nothing *in this folder* checks it:
+`_warn_about_split_segments()` reads `_zombie_cells` only. `tests/` covers it
+instead, which is why that test exists at all. The boss sits 6 cells from its
+checkpoint, outside its own 4.5-cell detection radius as well as the hero's
+acquire radius, so a respawn at the gate does not start with a charge. Moving
+that checkpoint deeper into the room is the edit that would break it.
 
 Cells are `CELL_SIZE` = 4 units, matching the KayKit dungeon grid: `wall` is
 4×4×1 and `floor_tile_large` is 4×4.
@@ -292,4 +320,4 @@ contiguous run of open cells without changing what the player sees.
   `scenes/hero/`, which is why it is in the frontmatter above. `Checkpoint`
   never names `Hero` as a type.
 
-<!-- verified-against: 711281c -->
+<!-- verified-against: 6958cf7 -->
