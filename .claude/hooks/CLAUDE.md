@@ -12,7 +12,8 @@ one failing does not prevent the other from running.
   `CLAUDE.md`, in four layers: **same-change** (code changed in a folder =>
   that folder's doc changed too), **code map** (every code folder is linked from
   the root's map, and every entry resolves), **verification** (every folder
-  doc carries a `verified-against: <sha>` stamp, and its folder has not changed
+  doc carries a `verified-against: <sha>` stamp, the stamp names a commit the
+  claim could have been made at, and its folder has not changed
   since without the doc being touched), and **dependency graph** (every folder
   doc *declares* `depends-on: [...]` — `[]` if it has none — each entry
   resolves, and no doc is left unread after code it depends on moved). Runs

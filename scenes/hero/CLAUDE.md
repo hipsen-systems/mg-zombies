@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/components, scenes/enemies, scenes/ui, assets]
+depends-on: [scenes, scenes/components, scenes/enemies, scenes/map, scenes/ui, assets]
 ---
 
 # scenes/hero/
@@ -240,7 +240,9 @@ numbers.
   tree freezes. Nothing in here needs to know that and nothing in here should:
   this folder reports the death, and the scene decides what it costs.
 
-  **What stops him swinging the instant he arrives is not in this folder.** It
+  **What stops him swinging the instant he arrives is not in this folder**, and
+  that is the second claim here resting on `scenes/map/` — the rock caps above
+  are the first, which is why it is in the frontmatter. It
   is `scenes/map/`'s rule that nothing a respawn *restores* stands within 4 cells
   of the cell it puts him on — 16 units, well outside `acquire_radius` (9) — so
   there is nothing to acquire on the frame he comes back. That is the invariant
@@ -282,4 +284,4 @@ numbers.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: 711281c -->
+<!-- verified-against: 091dfa6 -->
