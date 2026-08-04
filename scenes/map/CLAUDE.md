@@ -55,6 +55,14 @@ horizontally from `checkpoints()[k][0]`, which is the cell he actually lands on;
 the path distances quoted elsewhere in this doc are a different metric and run
 longer.
 
+**Say which metric, every time.** The `layout` docstring said "the nearest to
+`S` is 7" beside a clearance rule expressed in straight-line cells, and the two
+figures describe the same pair of cells: 7 by the flood-fill that cuts the
+segments, 6.08 straight-line. Neither was wrong and the pair is unreadable
+together, which is half of how #54's overstatement survived being read.
+Clearance is always straight-line, because it is about what can *see* the hero;
+segment distances are always path, because they are about what he had to walk.
+
 Stating it over *every* placement instead is the overstatement #54 found, and
 the map does not satisfy that version: a segment-1 zombie stands 3 cells from
 the boss gate, behind it. What the narrower rule leaves uncovered is small and
