@@ -92,6 +92,8 @@ Rules:
   ---
   ```
 
+  **The list must sit on one line, and the brackets are required.** A wrapped array is valid YAML and is still refused here (issue #34): the parser reads a single-line `[a, b]` and nothing else, so any other form would be read as *no dependencies at all* — indistinguishable from a deliberate `[]`, with no further check able to fire for that doc again. Declaring none is `depends-on: []`, which is a claim; an unparseable list is not.
+
   Only this direction is stored. "What do I affect?" is its exact inverse, and keeping both would create two records that can disagree — see the `depends-on` graph below for what the edges are actually used for.
 - Keep them short and current — a stale doc is worse than none. Delete statements that no longer hold rather than appending corrections.
 - These folder docs are also what PR reviewers use to judge a change, so an out-of-date doc is a valid review finding.
@@ -130,6 +132,16 @@ such as amending or force-pushing a branch after its docs were stamped. If it
 does happen anyway, the repair is to repoint the stamps at the resulting commit.
 Do not re-audit the docs — nothing about them became untrue.
 
+**Stamp at the `HEAD` you actually read the doc against, never at a sha found
+somewhere in the history.** Two guards refuse a stamp that could not have been
+earned (issue #35): the folder must exist at that commit, and the commit must be
+an ancestor of `HEAD`. Neither is caught by the check above — "did this folder
+change since the stamp?" is trivially satisfied by a stamp from before the
+folder existed, because there are no such commits. That is the extreme form of
+converting "unknown" into "verified", and it reached a PR with four checks
+green. Both faults repair the same way a rewritten history does: repoint, do not
+re-audit.
+
 ### What is enforced, and what is not
 
 `.claude/hooks/check-folder-docs.sh` runs as a Stop hook locally and in CI on
@@ -139,7 +151,7 @@ every PR (`docs-check` workflow). It runs four checks:
 |-------|---------|
 | same-change | Code changed in a folder without its doc changing; `project.godot` changed without the root doc changing |
 | code map | A code folder missing from the root's code map, or a map entry pointing at a doc that does not exist |
-| verification | A folder whose files changed since its `verified-against` stamp without the doc being touched — including history that predates these hooks, merge-conflict resolutions, and commits from anyone running without hooks |
+| verification | A folder whose files changed since its `verified-against` stamp without the doc being touched — including history that predates these hooks, merge-conflict resolutions, and commits from anyone running without hooks — plus a stamp that cannot be true at all: one naming a commit where the folder does not exist, or one that is not an ancestor of `HEAD` |
 | dependency graph | A `depends-on` entry naming a folder with no doc, or naming itself — and the one this check exists for: a doc left unread after code it *depends on* changed |
 
 ### The `depends-on` graph

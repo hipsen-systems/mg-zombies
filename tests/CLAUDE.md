@@ -120,6 +120,13 @@ PR, so the constraints run outward as well as in:
   the one enemy placement bound by that rule that the map's own build-time
   warning cannot see, because it reads the spawn list. The current map meets it
   exactly (4.000 cells, twice), so there is no slack to spend.
+- **It also settled what that rule says**, which is the more interesting half.
+  The check is per checkpoint over the placements a respawn *there* restores;
+  three folder docs stated it over every placement on the map, and measuring it
+  showed that version to be false by a cell (issue #54, now fixed in those
+  docs). A number three docs cited as a contract had never been measured until
+  something here measured it — which is the argument for this folder, made
+  without anyone planning it.
 
 ## Dependencies
 

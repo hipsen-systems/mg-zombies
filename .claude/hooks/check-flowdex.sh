@@ -87,15 +87,30 @@ fi
 # pattern is satisfied by merely having Flowdex connected — which is what the
 # availability probe above deliberately uses it for.
 #
-# The distinction rests on the JSON key, so be careful changing it. A real call
-# is recorded as "name":"<tool>"; every other appearance of a tool name in a
-# transcript uses a different key or no key at all — a ToolSearch result stores
-# it as "tool_name":"<tool>" and as bare comma-separated names. Requiring a
-# quote immediately before `name` is what separates the two. Verified against
-# 15 real session transcripts: this pattern's hit count equalled the number of
-# genuine calls in every one, including a session where these tools' full
-# schemas were loaded via ToolSearch. If Claude Code ever renames that key to
-# `name`, enforcement dies silently — that is the thing to re-test.
+# What separates the two is the *shape* a name is stored in, not the spelling of
+# any one key — and the shape is the thing to re-test (issue #27). A call is
+# recorded as an object carrying the name under a key spelled exactly `name`, so
+# demanding a quote immediately before it is what makes the other three ways a
+# name reaches a transcript miss. Each misses for its own reason, which is why
+# no single one of them is the invariant:
+#
+#   a ToolSearch reference entry   files it under "tool_name":"<tool>"
+#   a tool listing or a query      bare comma-separated names, no key at all
+#   a schema quoted as text        JSON-escaped, so its quotes are backslashed
+#                                  and the bare `"` here cannot match them
+#
+# Enforcement therefore dies silently the day a transcript format stores a tool
+# *listing* in the same structured shape a real call uses — whether by renaming
+# that key, by inlining schemas as JSON objects instead of as escaped text, or
+# by some third route to the same place. Re-testing only "has the key been
+# renamed?" would miss two of the three, which is what this comment used to send
+# a maintainer off to do. The check that covers all of them: open a current
+# transcript from a session that *loaded* these tools without calling them, and
+# confirm this pattern still finds nothing in it.
+#
+# Measured 2026-08-04 across 30 real transcripts: 214 occurrences of the matched
+# form, all 214 inside a tool_use entry, against 38 filed under `tool_name` and
+# 3 sitting in escaped text. No false positive in any of them.
 if grep -qE "\"name\"[[:space:]]*:[[:space:]]*\"${mcp_prefix}${writeback_tools}\"" "$transcript" 2>/dev/null; then
   exit 0
 fi

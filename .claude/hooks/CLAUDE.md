@@ -26,22 +26,37 @@ one failing does not prevent the other from running.
   against two `scenes/map/maze.gd` commits.
 
   **The frontmatter parser is the third thing here to hit the self-reference
-  trap.** `depends-on:` is read from line 2 to the first closing `---`, never
-  with a `/^---$/,/^---$/` range: sed restarts a range at every later match, so
-  a markdown horizontal rule further down a doc reopens it, and any prose line
-  starting `depends-on:` is then read as a real edge. A doc explaining this
-  convention would be misparsed by the parser it explains — the same shape as
-  the stamp parser taking the *last* match, and as the Flowdex hook reading its
-  own source. Assume any parser added here will hit it too.
+  trap, and it hit it twice.** `depends-on:` is read from line 2 to the first
+  closing `---`, never with a `/^---$/,/^---$/` range: sed restarts a range at
+  every later match, so a markdown horizontal rule further down a doc reopens
+  it, and any prose line starting `depends-on:` is then read as a real edge. A
+  doc explaining this convention would be misparsed by the parser it explains —
+  the same shape as the stamp parser taking the *last* match, and as the Flowdex
+  hook reading its own source. Assume any parser added here will hit it too.
+
+  The second half of that was issue #34: `2,/^---$/` has no terminator if the
+  closing `---` is missing, so it reads to end of file and the same prose line
+  is parsed as an edge by a different route. **The close is now required rather
+  than assumed** — `frontmatter_closed` answers whether there is a block at all
+  and `frontmatter` prints nothing when there is not, so callers have to report
+  the absence instead of receiving an empty parse. Anything reading frontmatter
+  should go through those two, not re-derive a range.
 
   **The bracket form is required, and the reason is not cosmetic.** An
-  unbracketed `depends-on: scenes` satisfies a bare key test while the parser
-  extracts nothing from it, so the doc reads as having no dependencies —
-  indistinguishable from a deliberate `[]`, with no `BADDEP` or `DEPSTALE` able
-  to fire for it ever again. That is this check's own failure mode reproduced
-  inside its parser, which is why the gate tests for `[...]` rather than for the
-  key alone. The general lesson: every gate here should ask whether a
-  *malformed* input is silently read as an *empty* one.
+  unbracketed `depends-on: scenes` — or a list wrapped over several lines —
+  satisfies a bare key test while the parser extracts nothing from it, so the
+  doc reads as having no dependencies, indistinguishable from a deliberate `[]`,
+  with no `BADDEP` or `DEPSTALE` able to fire for it ever again. That is this
+  check's own failure mode reproduced inside its parser, which is why the gate
+  tests for `[...]` rather than for the key alone. The general lesson: every
+  gate here should ask whether a *malformed* input is silently read as an
+  *empty* one.
+
+  **`NOFRONT` says which of the three it is**, and that is worth keeping. The
+  single message it used to print — "no `depends-on: [...]` key in a
+  frontmatter block on line 1" — sent anyone with a wrapped list looking for a
+  key that was plainly there (issue #34). No block, a block without the key, and
+  a key in an unparseable form now read differently.
 
   **Both graph and stamp checks must exclude nested subfolders.** A git pathspec
   of `scenes` also matches `scenes/map/` and `scenes/hero/`, so the first version
@@ -52,6 +67,23 @@ one failing does not prevent the other from running.
 
   `--audit` runs the history checks alone against any checkout, and is the
   one-command answer to "are these docs still trustworthy?".
+
+  **A stamp can name a real commit and still be impossible, and the
+  verification check cannot see it** (issue #35). It asks whether the folder
+  changed since the stamp without the doc changing; a stamp from *before the
+  folder existed* passes that trivially, because there are no such commits.
+  Two guards run first and fail closed: `PREDATES` (the folder does not exist
+  at that commit) and `UNREACHABLE` (the commit is not an ancestor of `HEAD`,
+  so it is a sha copied from elsewhere in the history rather than one this
+  branch was read at). The second is deliberately stricter locally than in CI,
+  where the PR job checks out the merge with `main` and so has more ancestors —
+  starting every branch fresh from `origin/main` is what keeps the two agreeing.
+  Both repair by repointing the stamp, never by re-auditing: like a rewritten
+  history, nothing about the doc became untrue.
+
+  It found live debt on its first run, exactly as the graph check did:
+  `tests/CLAUDE.md` was stamped at `200ccec`, one merge before `tests/` was
+  created.
 
   Note the ceiling: all four verify a doc was *edited*, never that it is
   *true*. The stamp does not change that — it makes the human judgement
@@ -69,6 +101,18 @@ one failing does not prevent the other from running.
 - `check-flowdex.sh` — enforces the Flowdex write-back rule (see "Knowledge
   base" in the root `CLAUDE.md`). No-ops for a developer who has not connected
   the Flowdex MCP server.
+
+  **What separates a call from a mention is a shape, not a key name** (issue
+  #27). The write-back probe requires the tool name under a key spelled exactly
+  `name`, which is how a call is recorded; the three other ways a name reaches a
+  transcript each miss for their own reason — a different key on a tool-search
+  reference entry, no key at all in a bare listing, and backslash-escaped quotes
+  in a schema quoted as text. So the thing that would kill enforcement silently
+  is a transcript format storing a tool *listing* in the structured shape a call
+  uses, by any route. The comment above that grep used to name only the key
+  rename, which is one of the three and would send a maintainer to re-test the
+  wrong thing. Re-test by opening a real transcript from a session that *loaded*
+  these tools without calling them and confirming the pattern finds nothing.
 - `test-check-flowdex.sh` — test harness for the above. Run it after any change
   to `check-flowdex.sh`:
 
