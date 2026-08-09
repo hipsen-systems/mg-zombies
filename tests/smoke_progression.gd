@@ -12,9 +12,15 @@ extends "res://tests/harness.gd"
 ## The kills are real, because kill-to-XP is the wiring under test and a granted
 ## number would prove only that the component adds up. Once a level has been
 ## earned the honest way, the second one is topped up through
-## [method Experience.grant] rather than by walking to five more zombies: what is
-## being checked past that point is spending, and the walking is already covered
-## by the other tests.
+## [method Hero.gain_experience] rather than by walking to five more zombies:
+## what is being checked past that point is spending, and the walking is already
+## covered by the other tests.
+##
+## [b]The top-up goes through the hero, not into his Experience child.[/b] The
+## two are the same call — one forwards to the other — but scenes/components/
+## states "only writing goes through the owner" without exceptions, and a test
+## is the worst place to take the first one: it is the file a reader copies when
+## they write the second.
 
 ## Budget for one engagement — closing the distance plus the fight. Measured at
 ## ~6-10 s each in smoke_combat.gd, and the first kills here are the same fight.
@@ -79,7 +85,7 @@ func _check() -> void:
 		"still rank %d" % hero.skill_rank(&"strength"))
 
 	# --- 5. the other skill, and what a raised ceiling does to current hp ------
-	progress.grant(progress.xp_to_next())
+	hero.gain_experience(progress.xp_to_next())
 	if not check("a second level pays a second point",
 		progress.level == 3 and progress.skill_points == 1,
 		"level %d, %d point(s)" % [progress.level, progress.skill_points]):
@@ -99,7 +105,7 @@ func _check() -> void:
 	# Deliberately overfunded, so what stops the purchases is the cap and not an
 	# empty pool — those are the two refusals, and a test that cannot tell them
 	# apart proves neither.
-	progress.grant(progress.xp_to_next() * 20.0)
+	hero.gain_experience(progress.xp_to_next() * 20.0)
 	var rank_before: int = hero.skill_rank(&"strength")
 	var points_before: int = progress.skill_points
 	var max_rank: int = hero.skill_max_rank
