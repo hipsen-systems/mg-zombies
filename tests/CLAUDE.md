@@ -96,6 +96,14 @@ reports a cascade and the first line was already the answer.
   measured on one machine, and CI runs a different build on a different OS.
   Budgets are generous on purpose: the traversal test allows 3600 frames for a
   walk that takes 1704.
+- **A test may read a component directly; it must not write to one.** Reaching
+  past an actor into its `Health` or `Experience` child to *set up* a state is
+  the tempting shortcut here, and `scenes/components/` states the convention
+  without exceptions — writes go through the owner's forwarding method. A test
+  is the worst place to take the first exception, because it is the file
+  somebody copies when they write the next one. `smoke_progression.gd` tops up
+  XP through the hero and reads the component for its assertions, which is the
+  shape to follow. Cross-review of PR #58 caught it doing the opposite.
 - **`hero` and `level` are deliberately untyped.** Naming `Hero` or `LevelMap`
   would make this folder fail to parse whenever the global class cache is
   missing — the state a fresh checkout is in until `--import` has run, which is
@@ -141,12 +149,13 @@ PR, so the constraints run outward as well as in:
 Everything here is downstream and nothing depends on it, which is why the
 frontmatter above is long. It reads `scenes/main.tscn` and the startup order
 `scenes/` owns, the command API and `killed` signal of `scenes/hero/` — plus its
-skill API (`spend_skill_point`, `skill_rank`, `skill_max_rank` and the two
-per-rank exports) since issue #8 — the `is_dead()`/group contract and
+skill API (`gain_experience`, `spend_skill_point`, `skill_rank`,
+`skill_max_rank` and the two per-rank exports) since issue #8 — the
+`is_dead()`/group contract and
 `xp_reward` of `scenes/enemies/`, `LevelMap`'s public geometry API from
 `scenes/map/`, and the `health` and `experience` components'
 `current`/`max_health` and `level`/`xp`/`skill_points` from `scenes/components/`.
 It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
 including the XP bar #8 added.
 
-<!-- verified-against: 4a0d146 -->
+<!-- verified-against: 5e30f99 -->
