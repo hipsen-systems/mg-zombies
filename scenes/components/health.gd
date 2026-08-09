@@ -49,6 +49,30 @@ func heal(amount: float) -> void:
 	health_changed.emit(current, max_health)
 
 
+## Move the ceiling, for the skill point that buys hit points (issue #8).
+##
+## [b]A raise heals by the same amount rather than diluting the bar.[/b] Buying
+## +10 max health at 40/100 leaves 50/110, not 40/110 — a point that visibly
+## does nothing at the moment it is spent reads as a point wasted. A *lowering*
+## takes the ceiling with it and clamps, which is the honest direction for a
+## debuff to work in.
+##
+## Deliberately will not resurrect. A corpse keeps its zero however far the
+## ceiling moves, for the reason [method heal] gives: coming back is
+## [method revive]'s decision to make and nothing else's.
+func set_max_health(value: float) -> void:
+	value = maxf(value, 1.0)
+	if is_equal_approx(value, max_health):
+		return
+	var raised := maxf(value - max_health, 0.0)
+	max_health = value
+	if not is_dead():
+		current = clampf(current + raised, 0.0, max_health)
+	# Emitted even for a corpse: the number did change, and a bar drawn from the
+	# last signal would otherwise keep the old maximum until something else moved.
+	health_changed.emit(current, max_health)
+
+
 ## Put a dead owner back on its feet at full health (issue #38's checkpoint
 ## respawn). The explicit decision [method heal] refuses to make for you.
 ##

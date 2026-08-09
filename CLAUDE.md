@@ -55,6 +55,7 @@ Top-down single-hero action game with the visual style of classic RTS games (Sta
 
 - **Core loop:** fight through a zombie-filled map; win by killing the boss at the end of it. The map is one route from start to boss whose *width* varies — wide clearings, narrow chokepoints, the occasional dead-end spur worth exploring — rather than a maze to navigate. Issue #37 settled that: the interest is in the encounters, not in wondering which turning is the right one.
 - **Progression:** level up by killing zombies, completing objectives along the way, and defeating minibosses.
+- **A level pays skill points and nothing else.** Reaching a level raises no stat by itself; every stat gain in the game is bought by spending a point. That is what makes two heroes of the same level different *builds* rather than the same hero twice, so it is the rule to defend when levelling starts to feel stingy — the fix is to make points worth more, never to slip a stat into the level itself. Settled by issue #8, and asserted by a smoke test in [`tests/`](tests/CLAUDE.md), because a rule this easy to erode should not rest on remembering it.
 - **Skill tree:** every hero starts identical; a large skill tree lets each run/player build a unique hero. The skill tree is the central customization system — design decisions should protect its depth and build variety.
 
 When making gameplay or architecture decisions, favor what serves this loop (hero movement/combat feel, readable top-down visuals, map/encounter design, skill-tree extensibility).
