@@ -149,4 +149,4 @@ per-rank exports) since issue #8 — the `is_dead()`/group contract and
 It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
 including the XP bar #8 added.
 
-<!-- verified-against: 6958cf7 -->
+<!-- verified-against: 4a0d146 -->
