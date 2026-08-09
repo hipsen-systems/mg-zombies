@@ -3,9 +3,6 @@ name: Build check
 on:
   pull_request:
 
-env:
-  GODOT_VERSION: 4.7.1
-
 jobs:
   build-check:
     runs-on: ubuntu-latest
@@ -14,23 +11,27 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Godot and export templates
-        run: |
-          curl -sL -o godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          unzip -q godot.zip
-          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot-bin
-          curl -sL -o templates.tpz "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
-          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
-          unzip -q templates.tpz -d /tmp/templates
-          mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+        uses: ./.github/actions/setup-godot
 
       - name: Import project assets
         run: ./godot-bin --headless --path . --import
 
-      - name: Verify the project exports
+      - name: Verify the web build exports
         run: |
           mkdir -p build/web
           ./godot-bin --headless --path . --export-release "Web" build/web/index.html
           test -f build/web/index.html
+
+      # Both presets are exported here, not just the one this PR's deploy will
+      # use. `release.yml` is the only other place the Windows preset is built,
+      # and it first runs when a `v*` tag is pushed -- so without this step a
+      # broken Windows preset stays invisible until someone cuts a release
+      # (issue #10).
+      - name: Verify the Windows build exports
+        run: |
+          mkdir -p build/windows
+          ./godot-bin --headless --path . --export-release "Windows Desktop" build/windows/mg-zombies.exe
+          test -f build/windows/mg-zombies.exe
 
       # Deliberately a step of this job rather than a job of its own (issue
       # #16): `build-check` is already a required status check and already has
