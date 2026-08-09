@@ -37,7 +37,7 @@ inherited or copy-pasted. Nothing in here knows about a specific actor.
   so far.
   - `grant(amount)` / `spend(amount) -> bool` / `xp_to_next()` /
     `emit_current()`; `level`, `xp` and `skill_points` are readable state.
-  - Signals: `xp_changed(current, maximum, level)` — both numbers measured
+  - Signals: `xp_changed(current, needed, level)` — both numbers measured
     toward the *next* level rather than cumulatively, so a bar can be drawn
     without reaching back in, the same contract `health_changed` has —
     `leveled_up(level, points_awarded)`, and `points_changed(points)`.
