@@ -23,6 +23,7 @@ placed one cell from a spawn.
 | `smoke_startup.gd` | The level assembles as authored and the navmesh is real |
 | `smoke_traversal.gd` | The hero walks start cell to boss room |
 | `smoke_combat.gd` | He kills, acquires his own targets, and heals afterwards |
+| `smoke_progression.gd` | Kills pay XP, levels pay points, and points pay stats |
 
 ## Running them
 
@@ -95,6 +96,14 @@ reports a cascade and the first line was already the answer.
   measured on one machine, and CI runs a different build on a different OS.
   Budgets are generous on purpose: the traversal test allows 3600 frames for a
   walk that takes 1704.
+- **A test may read a component directly; it must not write to one.** Reaching
+  past an actor into its `Health` or `Experience` child to *set up* a state is
+  the tempting shortcut here, and `scenes/components/` states the convention
+  without exceptions — writes go through the owner's forwarding method. A test
+  is the worst place to take the first exception, because it is the file
+  somebody copies when they write the next one. `smoke_progression.gd` tops up
+  XP through the hero and reads the component for its assertions, which is the
+  shape to follow. Cross-review of PR #58 caught it doing the opposite.
 - **`hero` and `level` are deliberately untyped.** Naming `Hero` or `LevelMap`
   would make this folder fail to parse whenever the global class cache is
   missing — the state a fresh checkout is in until `--import` has run, which is
@@ -120,6 +129,13 @@ PR, so the constraints run outward as well as in:
   the one enemy placement bound by that rule that the map's own build-time
   warning cannot see, because it reads the spawn list. The current map meets it
   exactly (4.000 cells, twice), so there is no slack to spend.
+- **`smoke_progression.gd` guards a rule with no other keeper** (issue #8): that
+  reaching a level raises no stat by itself, and every stat gain is bought with
+  a point. The root `CLAUDE.md` states it as design intent and `scenes/hero/`
+  owns every stat that could quietly break it — but nothing else *checks* it,
+  and the failure mode is friendly rather than obviously wrong ("levelling feels
+  stingy, give it a little something"). It is the first assertion here that is
+  primarily **negative**: what must *not* have changed.
 - **It also settled what that rule says**, which is the more interesting half.
   The check is per checkpoint over the placements a respawn *there* restores;
   three folder docs stated it over every placement on the map, and measuring it
@@ -132,10 +148,15 @@ PR, so the constraints run outward as well as in:
 
 Everything here is downstream and nothing depends on it, which is why the
 frontmatter above is long. It reads `scenes/main.tscn` and the startup order
-`scenes/` owns, the command API and `killed` signal of `scenes/hero/`, the
-`is_dead()`/group contract of `scenes/enemies/`, `LevelMap`'s public geometry
-API from `scenes/map/`, and the `health` component's `current`/`max_health` from
-`scenes/components/`. It reads no `scenes/ui/` node: nothing here asserts
-anything about the screen.
+`scenes/` owns, the command API and `killed` signal of `scenes/hero/` — plus its
+skill API (`gain_experience`, `spend_skill_point`, `skill_rank`,
+`skill_max_rank` and the two per-rank exports) since issue #8 — the
+`is_dead()`/group contract and
+`xp_reward` of `scenes/enemies/`, `LevelMap`'s public geometry API from
+`scenes/map/`, and from `scenes/components/` the `health` and `experience`
+children — `current`/`max_health` on one, and `level`/`xp`/`skill_points`,
+`xp_to_next()` and the `leveled_up` signal on the other.
+It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
+including the XP bar #8 added.
 
-<!-- verified-against: 6958cf7 -->
+<!-- verified-against: 5e30f99 -->

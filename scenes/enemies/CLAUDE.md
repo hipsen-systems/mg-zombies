@@ -125,6 +125,7 @@ change in `scenes/ui/`, because a unit describes itself to the info bar through
 | `leash_radius` | 26 | 22 | under the 24 units from its post to the gate |
 | `alert_delay` | 0.5 | 1.0 | a longer, more readable wind-up |
 | `regen_delay` / `regen_per_second` | 6 / 3 | 8 / 12 | leaving the fight resets it |
+| `xp_reward` | 10 | 100 | ten zombies' worth, for the fight that ends the run |
 | `display_name` | `"Zombie"` | `"Zombie Warlord"` | what the info bar calls it |
 
 **`roam_speed` is the one that looks inert and is not**, which is worth stating
@@ -236,10 +237,18 @@ wider than this will not.
   folder that does not mention this one.
 - Emits `died(zombie)`. **`scenes/main.gd` connects it on the boss and on
   nothing else** (issue #39): one enemy in the level has a death that ends the
-  run, and every other one is still dropped. It remains the hook XP will hang
-  off (issue #8), and the hero still emits his own `killed(victim)` from the
-  swing that lands the blow, which is the *attributed* version of the same
-  moment.
+  run, and every other one is still dropped. **It did not become the XP hook**
+  (issue #8) — `Hero.killed`, fired from the swing that lands the blow, did,
+  because this signal announces a death without saying who caused it and a hero
+  should not be paid for one he had no part in. Nothing here changed for XP
+  beyond the export below.
+- **A unit says what killing it is worth**, through the `xp_reward` export.
+  Per-instance like every other stat here, so the boss is worth ten zombies
+  without a second script, and read *off the victim* by `scenes/main.gd` rather
+  than looked up in a table there — the same principle as `unit_info()`, and it
+  means a new enemy type carries its value with it. It is deliberately **not** a
+  third member of the contract with `scenes/hero/`: that folder never reads it,
+  and a victim without the property is worth nothing rather than an error.
 - **Describes itself to the unit info bar** through `unit_info()` and the
   `display_name` export (per-instance like every stat, so the boss-room guard
   the class docs describe can announce itself without a new scene). The travel
@@ -268,4 +277,4 @@ wider than this will not.
   the boss has no model of its own at all, so whatever it eventually wears is a
   separate question from what the horde does.
 
-<!-- verified-against: 6958cf7 -->
+<!-- verified-against: 4a0d146 -->

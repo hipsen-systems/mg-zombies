@@ -100,6 +100,11 @@ const HIT_FLASH_COLOUR := Color(1.0, 0.88, 0.88)
 @export var attack_range := 2.0
 @export var attack_damage := 9.0
 @export var attack_cooldown := 1.3
+## What killing this is worth (issue #8). Per-instance like every stat here, so
+## the boss is worth more than a corridor shambler without a second script —
+## and read off the victim rather than assumed by the killer, the same way
+## [method unit_info] lets a unit report its own numbers.
+@export var xp_reward := 10.0
 
 @export_group("Regeneration")
 ## Seconds without taking damage before health starts coming back.

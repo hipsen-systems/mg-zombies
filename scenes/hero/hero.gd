@@ -39,11 +39,15 @@ signal move_ordered(world_point: Vector3)
 ## A+click, or by acquiring a target on his own.
 signal attack_ordered(target: Node3D)
 
-## Emitted when a target dies from this hero's damage. The XP hook for issue #8;
-## nothing consumes it yet. Attribution is exact — it fires from the swing that
-## landed the killing blow, not from the victim's own death signal, which any
-## source of damage would trigger.
+## Emitted when a target dies from this hero's damage. The XP hook for issue #8,
+## and scenes/main.gd is what consumes it. Attribution is exact — it fires from
+## the swing that landed the killing blow, not from the victim's own death
+## signal, which any source of damage would trigger.
 signal killed(victim: Node3D)
+
+## Emitted when a skill point has been spent and the stat it bought has already
+## been applied, so a listener reads the new numbers rather than the old ones.
+signal skill_ranked_up(skill: StringName, rank: int)
 
 ## Emitted when the attack command is armed or disarmed, so the HUD can show
 ## the player that the next left-click means "attack" rather than "select".
@@ -114,6 +118,23 @@ const RETARGET_INTERVAL := 0.2
 ## How far the visual jabs forward on a swing, in metres.
 const SWING_LUNGE := 0.45
 
+## The two skills a level's points can be spent on (issue #8), and the hotkey
+## each is bought with. Strength buys damage, Health buys hit points.
+##
+## [b]This is deliberately the smallest thing that proves the level-up hook has
+## a consumer, and it is not the skill tree.[/b] Two hard-coded skills, a rank
+## counter and a stat recomputed from base plus rank — no modifier objects, no
+## sources, no stacking rules, no data files. Issue #9 owns the actual model and
+## should replace all of this rather than extend it; the reason this folder had
+## no stat system until now was to avoid prejudging that, and a placeholder
+## small enough to delete keeps it unprejudged.
+const SKILL_STRENGTH := &"strength"
+const SKILL_HEALTH := &"health"
+const SKILLS := {
+	SKILL_STRENGTH: {"name": "Strength", "hotkey": "1", "action": &"skill_strength"},
+	SKILL_HEALTH: {"name": "Health", "hotkey": "2", "action": &"skill_health"},
+}
+
 ## What the unit info bar calls him. An export rather than a constant for the
 ## same reason the stats are: it is per-instance, so a named or unique hero
 ## needs no new code.
@@ -143,6 +164,13 @@ const SWING_LUNGE := 0.45
 @export var regen_delay := 5.0
 @export var regen_per_second := 4.0
 
+@export_group("Skills")
+## What one rank of each skill buys. See the SKILLS note above for why the two
+## effects are hard-coded here rather than described by data.
+@export var strength_damage_per_rank := 2.0
+@export var health_per_rank := 10.0
+@export var skill_max_rank := 5
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _dead := false
 
@@ -159,13 +187,26 @@ var _retarget_timer := 0.0
 var _regen_timer := 0.0
 var _swing_tween: Tween = null
 
+## Ranks bought so far, one entry per key of [constant SKILLS].
+var _skill_ranks := {}
+## The stats as authored, before any rank was bought. Kept because ranks are
+## *recomputed* rather than accumulated: adding the bonus to the live stat each
+## time would drift the moment anything else ever wrote to it.
+var _base_attack_damage := 0.0
+var _base_max_health := 0.0
+
 @onready var health: Health = $Health
+@onready var experience: Experience = $Experience
 @onready var _nav_agent: NavigationAgent3D = $NavigationAgent3D
 @onready var _visual: Node3D = $Visual
 
 
 func _ready() -> void:
 	health.died.connect(_on_health_died)
+	for skill in SKILLS:
+		_skill_ranks[skill] = 0
+	_base_attack_damage = attack_damage
+	_base_max_health = health.max_health
 
 
 func is_dead() -> bool:
@@ -182,6 +223,21 @@ func take_damage(amount: float) -> void:
 	health.take_damage(amount)
 
 
+## XP entry point, and [method take_damage]'s counterpart: whoever is paying the
+## hero calls this rather than reaching into the Experience child, so he stays
+## free to react to a level later — a flourish, a heal, a shout — without every
+## caller learning about it.
+##
+## Deliberately has no `_dead` guard where [method take_damage] does, and the
+## asymmetry is the point: refusing damage to a corpse is the rule, whereas
+## refusing *credit* to one would silently swallow a kill that lands after the
+## hero falls. Nothing can produce one today — he cannot swing while dead — but
+## the first damage-over-time effect can, and losing XP is the worse direction
+## to be wrong in.
+func gain_experience(amount: float) -> void:
+	experience.grant(amount)
+
+
 ## Headline stats for the unit info bar (scenes/ui/, issue #36).
 ##
 ## The unit reports its own numbers rather than the panel reaching in for named
@@ -195,6 +251,72 @@ func unit_info() -> Dictionary:
 		"attack_cooldown": attack_cooldown,
 		"move_speed": move_speed,
 	}
+
+
+# --- Skills ------------------------------------------------------------------
+
+## How many ranks of [param skill] have been bought. Unknown skills read 0.
+func skill_rank(skill: StringName) -> int:
+	return int(_skill_ranks.get(skill, 0))
+
+
+## Buy a rank of [param skill], if there is a point to spend and room to spend
+## it. Returns whether anything happened, so a caller can answer a refused
+## keypress without inspecting the ledger itself.
+##
+## Refusal is silent by design here: a HUD showing 0 points already says why,
+## and there is nothing a player can do about it but go and kill something.
+func spend_skill_point(skill: StringName) -> bool:
+	if not SKILLS.has(skill):
+		return false
+	if skill_rank(skill) >= skill_max_rank:
+		return false
+	# Last, and only once the rank is known to be buyable: spend() debits the
+	# point, so a check after it would have to hand one back.
+	if not experience.spend(1):
+		return false
+	_skill_ranks[skill] = skill_rank(skill) + 1
+	_apply_skills()
+	skill_ranked_up.emit(skill, skill_rank(skill))
+	return true
+
+
+## The skills, their ranks and what each has bought so far, for the HUD.
+##
+## Reported by the hero rather than assembled by the panel, exactly as
+## [method unit_info] is and for the same reason: what a rank *does* is a fact
+## about this actor, and a screen that formatted it would have to learn the
+## effects to display them.
+func skill_summary() -> Array[Dictionary]:
+	var summary: Array[Dictionary] = []
+	for skill in SKILLS:
+		summary.append({
+			"name": SKILLS[skill]["name"],
+			"hotkey": SKILLS[skill]["hotkey"],
+			"rank": skill_rank(skill),
+			"max_rank": skill_max_rank,
+			"effect": _skill_effect_text(skill),
+		})
+	return summary
+
+
+## Recompute every stat a skill touches, from its base value plus the ranks
+## bought. Idempotent, which is what makes it safe to call on every purchase.
+func _apply_skills() -> void:
+	attack_damage = _base_attack_damage + skill_rank(SKILL_STRENGTH) * strength_damage_per_rank
+	# Health owns the ceiling and what moving it does to the current value — a
+	# raise heals by the same amount rather than diluting the bar.
+	health.set_max_health(_base_max_health + skill_rank(SKILL_HEALTH) * health_per_rank)
+
+
+func _skill_effect_text(skill: StringName) -> String:
+	var rank := skill_rank(skill)
+	match skill:
+		SKILL_STRENGTH:
+			return "+%d dmg" % roundi(rank * strength_damage_per_rank)
+		SKILL_HEALTH:
+			return "+%d hp" % roundi(rank * health_per_rank)
+	return ""
 
 
 ## Come back at [param point] with full health, ready to take orders (issue #38).
@@ -318,6 +440,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("cancel_command"):
 		_set_attack_move_armed(false)
 		return
+
+	# Spending a point is not a command, so it deliberately does not disarm `A`
+	# or cancel an order — a player banking a level mid-fight keeps whatever the
+	# hero was doing. Driven from the table so a third skill is one entry, and
+	# above the click handlers because none of these are mouse buttons anyway.
+	for skill in SKILLS:
+		if event.is_action_pressed(SKILLS[skill]["action"]):
+			spend_skill_point(skill)
+			return
 
 	# Use the position carried by the click itself rather than the live mouse
 	# position: the two can differ by the time the event is handled, and it

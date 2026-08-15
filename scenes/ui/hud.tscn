@@ -27,6 +27,41 @@ text = "100 / 100"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="XPBar" type="ProgressBar" parent="."]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -86.0
+offset_right = 284.0
+offset_bottom = -66.0
+grow_vertical = 0
+max_value = 30.0
+value = 0.0
+show_percentage = false
+
+[node name="Value" type="Label" parent="XPBar"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 13
+text = "Lv 1     0 / 30 XP"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SkillsLabel" type="Label" parent="."]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -112.0
+offset_right = 524.0
+offset_bottom = -90.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.72, 0.76, 0.84, 1)
+theme_override_font_sizes/font_size = 14
+text = "0 points    [1] Strength 0/5    [2] Health 0/5"
+vertical_alignment = 1
+
 [node name="UnitInfoBar" parent="." instance=ExtResource("2_info_bar")]
 
 [node name="AttackMoveLabel" type="Label" parent="."]
@@ -55,7 +90,8 @@ offset_bottom = 96.0
 theme_override_colors/font_color = Color(0.72, 0.76, 0.84, 1)
 text = "Right-click: move / attack
 Left-click: select a unit
-A + left-click: attack / attack-move"
+A + left-click: attack / attack-move
+1 / 2: spend a skill point"
 
 [node name="DeathLabel" type="Label" parent="."]
 visible = false
@@ -163,5 +199,23 @@ grow_vertical = 2
 theme_override_colors/font_color = Color(0.78, 0.66, 1, 1)
 theme_override_font_sizes/font_size = 28
 text = "CHECKPOINT"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LevelUpLabel" type="Label" parent="."]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -212.0
+offset_right = 240.0
+offset_bottom = -168.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 30
+text = "LEVEL 2 — 1 skill point"
 horizontal_alignment = 1
 vertical_alignment = 1

@@ -82,6 +82,16 @@ notice. Issue #9 raising `acquire_radius` does the same from the other end.
 `tests/smoke_startup.gd` measures it on every run, in the restored-only form, so
 the contract is checked rather than remembered — and there is no slack in it.
 
+**The hero's stats became buyable in issue #8 and this survived it**, which is
+worth stating because the shape of the threat changed rather than went away. He
+can now spend points on damage and on hit points, and on nothing else — no skill
+touches `acquire_radius` or any other radius, so the 16-against-9 gap above is
+exactly what it was. What that issue actually did was make the "issue #9 raises
+it" sentence stop being hypothetical: there is now a mechanism for a stat to move
+mid-run, and the first skill that widens a radius breaks this contract from the
+hero's side with nothing here to see it. Re-read this section when one is added,
+not when the tree lands.
+
 **`B` is an enemy placement as well now** (issue #39), so the same clearance
 binds it — and nothing *in this folder* checks it:
 `_warn_about_split_segments()` reads `_zombie_cells` only. `tests/` covers it
@@ -320,4 +330,4 @@ contiguous run of open cells without changing what the player sees.
   `scenes/hero/`, which is why it is in the frontmatter above. `Checkpoint`
   never names `Hero` as a type.
 
-<!-- verified-against: 6958cf7 -->
+<!-- verified-against: 4a0d146 -->

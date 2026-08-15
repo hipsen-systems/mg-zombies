@@ -1,7 +1,8 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scenes/hero/hero.gd" id="1_hero"]
 [ext_resource type="Script" path="res://scenes/components/health.gd" id="2_health"]
+[ext_resource type="Script" path="res://scenes/components/experience.gd" id="3_experience"]
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
 radius = 0.4
@@ -48,3 +49,6 @@ target_desired_distance = 1.0
 [node name="Health" type="Node" parent="."]
 script = ExtResource("2_health")
 max_health = 100.0
+
+[node name="Experience" type="Node" parent="."]
+script = ExtResource("3_experience")

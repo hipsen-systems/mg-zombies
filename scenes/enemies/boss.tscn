@@ -35,6 +35,7 @@ chase_speed = 2.2
 attack_range = 3.0
 attack_damage = 25.0
 attack_cooldown = 2.0
+xp_reward = 100.0
 regen_delay = 8.0
 regen_per_second = 12.0
 
