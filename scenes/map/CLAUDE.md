@@ -78,19 +78,23 @@ practice. 4 cells is 16 units, comfortably outside his `acquire_radius` of 9, an
 that gap is the only reason he cannot swing on the frame he respawns — his own
 timers are cleared to *full readiness*, deliberately. Shrink the clearance here,
 and the invariant protecting the player is gone with nothing in that folder to
-notice. Issue #9 raising `acquire_radius` does the same from the other end.
+notice. A skill widening `acquire_radius` does the same from the other end.
 `tests/smoke_startup.gd` measures it on every run, in the restored-only form, so
 the contract is checked rather than remembered — and there is no slack in it.
 
-**The hero's stats became buyable in issue #8 and this survived it**, which is
-worth stating because the shape of the threat changed rather than went away. He
-can now spend points on damage and on hit points, and on nothing else — no skill
-touches `acquire_radius` or any other radius, so the 16-against-9 gap above is
-exactly what it was. What that issue actually did was make the "issue #9 raises
-it" sentence stop being hypothetical: there is now a mechanism for a stat to move
-mid-run, and the first skill that widens a radius breaks this contract from the
-hero's side with nothing here to see it. Re-read this section when one is added,
-not when the tree lands.
+**The other end is now guarded too** (issue #9). The hero's stats became
+spendable in issue #8 and the skill tree that replaced those placeholders is
+where a radius could first have moved mid-run. It deliberately does not sell
+one: `acquire_radius` is left out of the stats `scenes/hero/` accepts from a
+tree, and `tests/smoke_skills.gd` asserts that a *fully invested* hero still
+sees less far than a respawn is cleared for. So the 16-against-9 gap is exactly
+what it was, and it is now checked from both sides rather than from this one.
+
+What has not changed is where the danger lives: the tree is authored in a third
+folder, `scenes/skills/`, so the edit that would break this contract is a `.tres`
+that neither this folder nor `scenes/hero/` would show in its diff. That test is
+the only thing standing between the two. If a radius skill is ever wanted, the
+clearance here is what has to move first.
 
 **`B` is an enemy placement as well now** (issue #39), so the same clearance
 binds it — and nothing *in this folder* checks it:
@@ -330,4 +334,4 @@ contiguous run of open cells without changing what the player sees.
   `scenes/hero/`, which is why it is in the frontmatter above. `Checkpoint`
   never names `Hero` as a type.
 
-<!-- verified-against: 4a0d146 -->
+<!-- verified-against: d5fb938 -->
