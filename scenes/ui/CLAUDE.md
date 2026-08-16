@@ -331,4 +331,4 @@ difference worth stating rather than assuming.
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: d5fb938 -->
+<!-- verified-against: 79c5b4d -->
