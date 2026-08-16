@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/hero, scenes/enemies, scenes/map, scenes/components]
+depends-on: [scenes, scenes/hero, scenes/enemies, scenes/map, scenes/components, scenes/skills]
 ---
 
 # tests/
@@ -24,6 +24,7 @@ placed one cell from a spawn.
 | `smoke_traversal.gd` | The hero walks start cell to boss room |
 | `smoke_combat.gd` | He kills, acquires his own targets, and heals afterwards |
 | `smoke_progression.gd` | Kills pay XP, levels pay points, and points pay stats |
+| `smoke_skills.gd` | The skill tree is sound, gates what it says, and sells nothing it must not |
 
 ## Running them
 
@@ -92,6 +93,14 @@ reports a cascade and the first line was already the answer.
   `scenes/main.gd` bakes the navmesh in `_ready()` and the navigation server
   syncs a frame later; a path or position read before that answers with the map
   origin rather than an error, so the symptom is plausible wrong numbers.
+- **A checker has to be shown a failure, not only a pass.** `smoke_skills.gd`
+  asserts the shipped skill tree validates clean *and* that a deliberately
+  cyclic one does not, because the first assertion alone is equally satisfied by
+  a validator that never reports anything. Cross-review of PR #61 read the cycle
+  check as dead code for exactly that reason, and could not be answered from the
+  suite. Anything here that asserts "no problems found" owes a companion that
+  proves the finder works. Deep-duplicate before breaking something: resources
+  reached through the hero are shared, and the run is still using them.
 - **Assert bounds, never measured values.** Every number in these files was
   measured on one machine, and CI runs a different build on a different OS.
   Budgets are generous on purpose: the traversal test allows 3600 frames for a
@@ -136,6 +145,15 @@ PR, so the constraints run outward as well as in:
   and the failure mode is friendly rather than obviously wrong ("levelling feels
   stingy, give it a little something"). It is the first assertion here that is
   primarily **negative**: what must *not* have changed.
+- **`smoke_skills.gd` is where two cross-folder invariants stop being prose**
+  (issue #9). The skill tree is authored in `scenes/skills/` and can silently
+  undo a decision made somewhere else: `reach` could out-reach the end boss,
+  whose longer swing is the one thing inverting the hero's advantage over every
+  zombie (`scenes/enemies/`), and an `acquire_radius` skill could grow past the
+  4-cell respawn clearance `scenes/map/` promises and `scenes/hero/` leans on.
+  Neither folder can see a `.tres` in a third one. Both are asserted against a
+  **fully invested** hero — the test buys the whole tree out — because a cap is
+  only worth checking at the cap.
 - **It also settled what that rule says**, which is the more interesting half.
   The check is per checkpoint over the placements a respawn *there* restores;
   three folder docs stated it over every placement on the map, and measuring it
@@ -148,9 +166,13 @@ PR, so the constraints run outward as well as in:
 
 Everything here is downstream and nothing depends on it, which is why the
 frontmatter above is long. It reads `scenes/main.tscn` and the startup order
-`scenes/` owns, the command API and `killed` signal of `scenes/hero/` — plus its
+`scenes/` owns, the command API and `killed` signal of `scenes/hero/` — plus his
 skill API (`gain_experience`, `spend_skill_point`, `skill_rank`,
-`skill_max_rank` and the two per-rank exports) since issue #8 — the
+`skill_refusal`, `skill_problems` and the `skill_tree` export) since issues #8
+and #9 — and through that export the read side of `scenes/skills/`
+(`SkillTree.ids`, `node`, `cost_of_next_rank`, `total_cost`, `validate`, and a
+node's `max_rank` / `requires` / `effects`; `requires` is also *written*, on a
+deep duplicate, to build the broken tree above). Also the
 `is_dead()`/group contract and
 `xp_reward` of `scenes/enemies/`, `LevelMap`'s public geometry API from
 `scenes/map/`, and from `scenes/components/` the `health` and `experience`
@@ -159,4 +181,4 @@ children — `current`/`max_health` on one, and `level`/`xp`/`skill_points`,
 It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
 including the XP bar #8 added.
 
-<!-- verified-against: 5e30f99 -->
+<!-- verified-against: aeec030 -->

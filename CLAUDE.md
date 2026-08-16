@@ -44,6 +44,7 @@ was a gap in this sentence.
 | [`scenes/hero/`](scenes/hero/CLAUDE.md) | The player-controlled hero and its move controller |
 | [`scenes/enemies/`](scenes/enemies/CLAUDE.md) | Hostile actors — currently the basic zombie AI |
 | [`scenes/components/`](scenes/components/CLAUDE.md) | Reusable actor parts added as child nodes (`Health`) |
+| [`scenes/skills/`](scenes/skills/CLAUDE.md) | The skill tree's data model, and the tree the hero ships with |
 | [`scenes/map/`](scenes/map/CLAUDE.md) | The level map and its generation |
 | [`scenes/ui/`](scenes/ui/CLAUDE.md) | The HUD, the unit info bar, and unit selection |
 | [`assets/`](assets/CLAUDE.md) | Third-party CC0 art and the licence record |

@@ -145,6 +145,12 @@ with before touching the rest:
   coin flip; inverting it means the boss cannot be out-traded at all and has to
   be fought by moving. That is the whole encounter, and it is why `chase_speed`
   is low enough for kiting to work.
+  **Since issue #9 the hero's reach is buyable, and this 3.0 is what caps it.**
+  The tree in `scenes/skills/` stops at +0.6, so a fully invested hero reaches
+  2.8 and the inversion survives a maxed build — otherwise the boss's identity
+  could be spent away from a `.tres` in a folder that has never heard of it.
+  `tests/smoke_skills.gd` asserts the gap rather than trusting either doc, so
+  lowering this number is a change that will be caught here.
 - **`roam_radius = 0` and a leash shorter than the way out make it a guard.**
   Its post is 6 cells (24 units) from the boss-room gate and it turns back at
   5.5, so it can never follow the hero out of the room, and there is no wander
@@ -152,9 +158,12 @@ with before touching the rest:
   deliberately.
 - **Breaking off the fight resets it.** Regeneration is state-gated (see above),
   so kiting inside the room never heals it — only a genuine disengage does, at
-  12 HP/s against the hero's 4. Retreating to heal is therefore a net loss and
-  the fight has to be won in one engagement. The 8 s delay is what keeps a
-  two-second reposition free.
+  12 HP/s against the hero's 4, or against 7 for a build that has bought every
+  rank of Recovery (issue #9). Retreating to heal is therefore a net loss either
+  way and the fight has to be won in one engagement, but the margin is a third
+  of what this bullet used to claim, so a skill tree that ever sells regen
+  harder is what would turn this from a rule into a coin flip. The 8 s delay is
+  what keeps a two-second reposition free.
 
 The stats are a first pass and are meant to be argued with: nothing in the game
 was balanced against an end boss before there was one.
@@ -277,4 +286,4 @@ wider than this will not.
   the boss has no model of its own at all, so whatever it eventually wears is a
   separate question from what the horde does.
 
-<!-- verified-against: 4a0d146 -->
+<!-- verified-against: d5fb938 -->

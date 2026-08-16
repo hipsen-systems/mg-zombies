@@ -92,6 +92,12 @@ fed by method call, never reached into:
   that knew it would need editing for every new skill. The line turns gold while
   points are unspent, because the count is the only part that changes what a
   keypress does.
+  **It is a crib sheet for the keys, not a view of the skill tree**, and issue
+  #9 is where those stopped being the same list: the hero now has an authored
+  tree larger than the two keys bound to it, and `skill_summary()` reports the
+  bound ones. Drawing the rest needs a panel, which is not this folder's yet —
+  and when it is, it is a new element rather than a longer line, because six
+  entries do not fit on one.
 - **`flash_level_up(level, points)`** is the transient half, and it exists for
   the same reason `flash_checkpoint()` does: the bar below already says it, and
   a bar does not *reach* a player mid-fight — which is exactly when the kill that
@@ -239,4 +245,4 @@ difference worth stating rather than assuming.
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: 4a0d146 -->
+<!-- verified-against: d5fb938 -->

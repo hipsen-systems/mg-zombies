@@ -1,0 +1,106 @@
+[gd_resource type="Resource" script_class="SkillTree" format=3]
+
+[ext_resource type="Script" path="res://scenes/skills/skill_node.gd" id="1_ye2gx"]
+[ext_resource type="Script" path="res://scenes/skills/skill_effect.gd" id="2_15s32"]
+[ext_resource type="Script" path="res://scenes/skills/stat_modifier.gd" id="3_evr03"]
+[ext_resource type="Script" path="res://scenes/skills/skill_tree.gd" id="4_yn5rv"]
+
+[sub_resource type="Resource" id="Resource_8jhyj"]
+script = ExtResource("3_evr03")
+stat = &"attack_damage"
+per_rank = 2.0
+unit = "dmg"
+
+[sub_resource type="Resource" id="Resource_tkqvd"]
+script = ExtResource("1_ye2gx")
+id = &"strength"
+display_name = "Strength"
+description = "Heavier swings. The straight line through the tree."
+max_rank = 5
+effects = Array[ExtResource("2_15s32")]([SubResource("Resource_8jhyj")])
+
+[sub_resource type="Resource" id="Resource_oq84e"]
+script = ExtResource("3_evr03")
+stat = &"max_health"
+per_rank = 10.0
+unit = "hp"
+
+[sub_resource type="Resource" id="Resource_oqse3"]
+script = ExtResource("1_ye2gx")
+id = &"health"
+display_name = "Health"
+description = "More to lose before you lose it."
+max_rank = 5
+effects = Array[ExtResource("2_15s32")]([SubResource("Resource_oq84e")])
+
+[sub_resource type="Resource" id="Resource_5guf5"]
+script = ExtResource("3_evr03")
+stat = &"move_speed"
+per_rank = 0.4
+unit = "speed"
+
+[sub_resource type="Resource" id="Resource_xn6bm"]
+script = ExtResource("1_ye2gx")
+id = &"swiftness"
+display_name = "Swiftness"
+description = "Reach the next fight sooner, or leave one behind."
+max_rank = 3
+effects = Array[ExtResource("2_15s32")]([SubResource("Resource_5guf5")])
+
+[sub_resource type="Resource" id="Resource_enswx"]
+script = ExtResource("3_evr03")
+stat = &"attack_range"
+per_rank = 0.3
+unit = "reach"
+
+[sub_resource type="Resource" id="Resource_qv76w"]
+script = ExtResource("1_ye2gx")
+id = &"reach"
+display_name = "Reach"
+description = "A longer swing. Deliberately never long enough to out-reach the boss."
+max_rank = 2
+cost_per_rank = 2
+requires = {
+&"strength": 3
+}
+effects = Array[ExtResource("2_15s32")]([SubResource("Resource_enswx")])
+
+[sub_resource type="Resource" id="Resource_t2aqo"]
+script = ExtResource("3_evr03")
+stat = &"attack_cooldown"
+mode = 1
+per_rank = -0.08
+unit = "attack time"
+
+[sub_resource type="Resource" id="Resource_lkycc"]
+script = ExtResource("1_ye2gx")
+id = &"frenzy"
+display_name = "Frenzy"
+description = "Swing sooner after swinging."
+max_rank = 3
+cost_per_rank = 2
+requires = {
+&"strength": 2
+}
+effects = Array[ExtResource("2_15s32")]([SubResource("Resource_t2aqo")])
+
+[sub_resource type="Resource" id="Resource_tndkh"]
+script = ExtResource("3_evr03")
+stat = &"regen_per_second"
+per_rank = 1.0
+unit = "hp/s"
+
+[sub_resource type="Resource" id="Resource_0qun8"]
+script = ExtResource("1_ye2gx")
+id = &"recovery"
+display_name = "Recovery"
+description = "Come back faster between fights."
+max_rank = 3
+requires = {
+&"health": 2
+}
+effects = Array[ExtResource("2_15s32")]([SubResource("Resource_tndkh")])
+
+[resource]
+script = ExtResource("4_yn5rv")
+nodes = Array[ExtResource("1_ye2gx")]([SubResource("Resource_tkqvd"), SubResource("Resource_oqse3"), SubResource("Resource_xn6bm"), SubResource("Resource_qv76w"), SubResource("Resource_lkycc"), SubResource("Resource_0qun8")])

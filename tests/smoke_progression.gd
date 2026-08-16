@@ -77,7 +77,7 @@ func _check() -> void:
 	# --- 4. spending a point is what raises one -------------------------------
 	check("a point buys a rank of strength", hero.spend_skill_point(&"strength"))
 	check("strength raised the hero's damage",
-		is_equal_approx(hero.attack_damage, damage_at_start + hero.strength_damage_per_rank),
+		is_equal_approx(hero.attack_damage, damage_at_start + _per_rank(&"strength")),
 		"%.0f -> %.0f dmg" % [damage_at_start, hero.attack_damage])
 	check("the point is gone", progress.skill_points == 0)
 	check("a second point cannot be spent from an empty pool",
@@ -93,12 +93,12 @@ func _check() -> void:
 	var hp_before: float = hero.health.current
 	check("a point buys a rank of health", hero.spend_skill_point(&"health"))
 	check("health raised the ceiling",
-		is_equal_approx(hero.health.max_health, max_health_at_start + hero.health_per_rank),
+		is_equal_approx(hero.health.max_health, max_health_at_start + _per_rank(&"health")),
 		"%.0f -> %.0f max hp" % [max_health_at_start, hero.health.max_health])
 	# The half that is easy to get wrong: buying hit points at 40/100 must leave
 	# 50/110, not 40/110. A point that visibly does nothing reads as one wasted.
 	check("and healed by the same amount rather than diluting the bar",
-		is_equal_approx(hero.health.current, hp_before + hero.health_per_rank),
+		is_equal_approx(hero.health.current, hp_before + _per_rank(&"health")),
 		"%.0f -> %.0f hp" % [hp_before, hero.health.current])
 
 	# --- 6. a rank cannot be bought past its cap ------------------------------
@@ -108,7 +108,7 @@ func _check() -> void:
 	hero.gain_experience(progress.xp_to_next() * 20.0)
 	var rank_before: int = hero.skill_rank(&"strength")
 	var points_before: int = progress.skill_points
-	var max_rank: int = hero.skill_max_rank
+	var max_rank: int = hero.skill_tree.node(&"strength").max_rank
 	var attempts := max_rank + 2
 	var bought := 0
 	for i in attempts:
@@ -137,6 +137,15 @@ func _kill_one(what: String) -> bool:
 		ENGAGE_BUDGET,
 		{"the hero lost the fight": func() -> bool: return hero.is_dead()},
 	)
+
+
+## What one rank of [param skill] is worth, read off the authored tree rather
+## than written down here — this file asserts that a point moves a stat, and
+## `scenes/skills/` owns by how much. Freezing the number here would make a
+## balance edit fail a test that is not about balance. The tree mechanics
+## themselves are `smoke_skills.gd`'s.
+func _per_rank(skill: StringName) -> float:
+	return hero.skill_tree.node(skill).effects[0].per_rank
 
 
 func _nearest_reward() -> float:
