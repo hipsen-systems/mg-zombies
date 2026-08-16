@@ -170,8 +170,9 @@ frontmatter above is long. It reads `scenes/main.tscn` and the startup order
 skill API (`gain_experience`, `spend_skill_point`, `skill_rank`,
 `skill_refusal`, `skill_problems` and the `skill_tree` export) since issues #8
 and #9 — and through that export the read side of `scenes/skills/`
-(`SkillTree.ids`, `node`, `cost_of_next_rank`, `total_cost`, and a node's
-`max_rank` / `requires` / `effects`). Also the
+(`SkillTree.ids`, `node`, `cost_of_next_rank`, `total_cost`, `validate`, and a
+node's `max_rank` / `requires` / `effects`; `requires` is also *written*, on a
+deep duplicate, to build the broken tree above). Also the
 `is_dead()`/group contract and
 `xp_reward` of `scenes/enemies/`, `LevelMap`'s public geometry API from
 `scenes/map/`, and from `scenes/components/` the `health` and `experience`
@@ -180,4 +181,4 @@ children — `current`/`max_health` on one, and `level`/`xp`/`skill_points`,
 It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
 including the XP bar #8 added.
 
-<!-- verified-against: d5fb938 -->
+<!-- verified-against: aeec030 -->
