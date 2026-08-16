@@ -1,0 +1,37 @@
+name: Set up Godot
+description: >
+  Download the pinned Godot headless binary and its export templates. The binary
+  is left at ./godot-bin in the workspace; the templates are installed where the
+  engine looks for them, so --export-release works for every preset.
+
+# The version lives here and nowhere else. It used to be a `GODOT_VERSION` env
+# var in each of the three workflows that need Godot, which meant a version bump
+# had three places to miss -- the same duplication as the setup steps themselves
+# (issue #10). Callers that need a different version can still pass one.
+inputs:
+  version:
+    description: Godot version to install, e.g. "4.7.1".
+    required: false
+    default: "4.7.1"
+
+runs:
+  using: composite
+  steps:
+    - name: Download Godot and export templates
+      shell: bash
+      env:
+        GODOT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+
+        # -f so a 404 fails here rather than unpacking an HTML error page and
+        # failing later with a confusing message (issue #10).
+        curl -sfL -o godot.zip "${base}/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+        unzip -q godot.zip
+        mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot-bin
+
+        curl -sfL -o templates.tpz "${base}/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+        mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+        unzip -q templates.tpz -d /tmp/templates
+        mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"

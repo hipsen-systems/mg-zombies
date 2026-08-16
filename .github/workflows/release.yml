@@ -7,9 +7,6 @@ on:
 permissions:
   contents: write
 
-env:
-  GODOT_VERSION: 4.7.1
-
 jobs:
   windows-build:
     runs-on: ubuntu-latest
@@ -18,14 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Godot and export templates
-        run: |
-          curl -sL -o godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          unzip -q godot.zip
-          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot-bin
-          curl -sL -o templates.tpz "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
-          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
-          unzip -q templates.tpz -d /tmp/templates
-          mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+        uses: ./.github/actions/setup-godot
 
       - name: Export Windows build
         run: |
