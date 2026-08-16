@@ -45,6 +45,28 @@ func _check() -> void:
 		"; ".join(problems)):
 		return
 
+	# ...and the checker is not simply agreeable. A clean result on a good tree
+	# proves nothing about validation; the shipped tree passing is exactly what a
+	# validate() that always returned nothing would also look like. Cross-review
+	# of PR #61 reported the cycle check as dead code — it is not, but the reason
+	# nobody could tell from the suite was this gap.
+	#
+	# A cycle is the fault chosen because it is the one no single node can see.
+	# The tree is deep-duplicated first: the hero's is a shared preloaded
+	# resource, so mutating it in place would corrupt the run this test is still
+	# using.
+	var broken = tree.duplicate(true)
+	broken.nodes[0].requires = {broken.nodes[1].id: 1}
+	broken.nodes[1].requires = {broken.nodes[0].id: 1}
+	var caught := PackedStringArray()
+	for problem in broken.validate():
+		if problem.contains("cycle"):
+			caught.append(problem)
+	check("a prerequisite cycle is caught rather than shipped",
+		not caught.is_empty(), "; ".join(caught))
+	check("and the hero's own tree was not the one edited",
+		hero.skill_problems().is_empty())
+
 	# --- 2. a gated node is refused until its prerequisite is met --------------
 	# Funded first and deliberately overfunded, so what refuses the purchase is
 	# the prerequisite and not an empty pool. Those are the two refusals, and a

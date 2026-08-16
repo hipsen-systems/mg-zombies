@@ -51,7 +51,12 @@ renamed, a required rank above what that node can reach, an effect that does
 nothing, a prerequisite cycle. A `.tres` mistake otherwise produces a skill that
 is quietly unbuyable, which reads in play as a balance problem and is not one.
 `scenes/hero/` calls it at `_ready()` and pushes each fault as an error; `tests/`
-asserts the shipped tree is clean.
+asserts the shipped tree is clean **and that a deliberately broken one is not**.
+Both halves are needed: a clean result on a good tree is also exactly what a
+`validate()` that always returned nothing would produce, and cross-review of
+PR #61 reported the cycle check as dead code precisely because nothing in the
+suite could tell those apart. It was not dead — but the gap that made the claim
+unfalsifiable was real, and it is closed by feeding it a cycle.
 
 **What `validate()` structurally cannot check is a stat name**, because only the
 actor owning the stats knows whether `attack_damge` is one. `stats_used()` is

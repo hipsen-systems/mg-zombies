@@ -93,6 +93,14 @@ reports a cascade and the first line was already the answer.
   `scenes/main.gd` bakes the navmesh in `_ready()` and the navigation server
   syncs a frame later; a path or position read before that answers with the map
   origin rather than an error, so the symptom is plausible wrong numbers.
+- **A checker has to be shown a failure, not only a pass.** `smoke_skills.gd`
+  asserts the shipped skill tree validates clean *and* that a deliberately
+  cyclic one does not, because the first assertion alone is equally satisfied by
+  a validator that never reports anything. Cross-review of PR #61 read the cycle
+  check as dead code for exactly that reason, and could not be answered from the
+  suite. Anything here that asserts "no problems found" owes a companion that
+  proves the finder works. Deep-duplicate before breaking something: resources
+  reached through the hero are shared, and the run is still using them.
 - **Assert bounds, never measured values.** Every number in these files was
   measured on one machine, and CI runs a different build on a different OS.
   Budgets are generous on purpose: the traversal test allows 3600 frames for a

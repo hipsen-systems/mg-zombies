@@ -164,29 +164,42 @@ func _cycle_problems() -> PackedStringArray:
 	var state := {}
 	for candidate in nodes:
 		if candidate != null and not candidate.id.is_empty():
-			_walk(candidate.id, state, PackedStringArray(), problems)
+			problems.append_array(_walk(candidate.id, state, PackedStringArray()))
 	return problems
 
 
-func _walk(
-	id: StringName, state: Dictionary, path: PackedStringArray, problems: PackedStringArray
-) -> void:
+## Depth-first from [param id], returning the cycles found below it.
+##
+## Returns its findings rather than appending into a parameter, which is the
+## shape the two checks above already use. The version that accumulated into a
+## passed-in [PackedStringArray] worked — those really are mutated through a
+## parameter, measured on 4.7 — but it *reads* like the classic value-type bug
+## and a cross-review of PR #61 duly reported it as one. Validation code that
+## takes a careful reader ten minutes to clear is worth six lines to make
+## obvious; `smoke_skills.gd` is what actually holds either version to it.
+##
+## [param state] stays a [Dictionary] on purpose: it is genuinely shared across
+## the whole sweep, which is what keeps a diamond from being walked twice and a
+## ring from recursing forever.
+func _walk(id: StringName, state: Dictionary, path: PackedStringArray) -> PackedStringArray:
+	var problems := PackedStringArray()
 	var visit := int(state.get(id, 0))
 	if visit == 2:
-		return
+		return problems
 	if visit == 1:
 		var ring := path.duplicate()
 		ring.append(String(id))
 		problems.append("prerequisite cycle: %s" % " -> ".join(ring))
-		return
+		return problems
 	state[id] = 1
 	var here := node(id)
 	if here != null:
 		var onward := path.duplicate()
 		onward.append(String(id))
 		for required_id in here.requires:
-			_walk(required_id, state, onward, problems)
+			problems.append_array(_walk(required_id, state, onward))
 	state[id] = 2
+	return problems
 
 
 func _requirement_text(target: SkillNode) -> String:
