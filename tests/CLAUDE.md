@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/hero, scenes/enemies, scenes/map, scenes/components]
+depends-on: [scenes, scenes/hero, scenes/enemies, scenes/map, scenes/components, scenes/skills]
 ---
 
 # tests/
@@ -24,6 +24,7 @@ placed one cell from a spawn.
 | `smoke_traversal.gd` | The hero walks start cell to boss room |
 | `smoke_combat.gd` | He kills, acquires his own targets, and heals afterwards |
 | `smoke_progression.gd` | Kills pay XP, levels pay points, and points pay stats |
+| `smoke_skills.gd` | The skill tree is sound, gates what it says, and sells nothing it must not |
 
 ## Running them
 
@@ -136,6 +137,15 @@ PR, so the constraints run outward as well as in:
   and the failure mode is friendly rather than obviously wrong ("levelling feels
   stingy, give it a little something"). It is the first assertion here that is
   primarily **negative**: what must *not* have changed.
+- **`smoke_skills.gd` is where two cross-folder invariants stop being prose**
+  (issue #9). The skill tree is authored in `scenes/skills/` and can silently
+  undo a decision made somewhere else: `reach` could out-reach the end boss,
+  whose longer swing is the one thing inverting the hero's advantage over every
+  zombie (`scenes/enemies/`), and an `acquire_radius` skill could grow past the
+  4-cell respawn clearance `scenes/map/` promises and `scenes/hero/` leans on.
+  Neither folder can see a `.tres` in a third one. Both are asserted against a
+  **fully invested** hero — the test buys the whole tree out — because a cap is
+  only worth checking at the cap.
 - **It also settled what that rule says**, which is the more interesting half.
   The check is per checkpoint over the placements a respawn *there* restores;
   three folder docs stated it over every placement on the map, and measuring it
@@ -148,9 +158,12 @@ PR, so the constraints run outward as well as in:
 
 Everything here is downstream and nothing depends on it, which is why the
 frontmatter above is long. It reads `scenes/main.tscn` and the startup order
-`scenes/` owns, the command API and `killed` signal of `scenes/hero/` — plus its
+`scenes/` owns, the command API and `killed` signal of `scenes/hero/` — plus his
 skill API (`gain_experience`, `spend_skill_point`, `skill_rank`,
-`skill_max_rank` and the two per-rank exports) since issue #8 — the
+`skill_refusal`, `skill_problems` and the `skill_tree` export) since issues #8
+and #9 — and through that export the read side of `scenes/skills/`
+(`SkillTree.ids`, `node`, `cost_of_next_rank`, `total_cost`, and a node's
+`max_rank` / `requires` / `effects`). Also the
 `is_dead()`/group contract and
 `xp_reward` of `scenes/enemies/`, `LevelMap`'s public geometry API from
 `scenes/map/`, and from `scenes/components/` the `health` and `experience`
