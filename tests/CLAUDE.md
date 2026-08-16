@@ -208,4 +208,4 @@ children — `current`/`max_health` on one, and `level`/`xp`/`skill_points`,
 It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
 including the XP bar #8 added.
 
-<!-- verified-against: 79c5b4d -->
+<!-- verified-against: 0bc0fe6 -->
