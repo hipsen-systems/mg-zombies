@@ -184,9 +184,16 @@ had.
   decision and the zombies do not wait; a tree readable only when nothing is
   chasing you would be unusable at the exact moment a level is banked.
 - **Both carry the `_run_over` guard**, and it matters in opposite directions —
-  here, unpausing a won run would take the win back. `scenes/ui/` refuses to open
-  the panel once the victory screen is up, so this is the second of two guards on
-  the same case rather than the only one.
+  here, unpausing a won run would take the win back.
+- **The guard alone was not enough, and the gap is worth knowing.** `_run_over` is
+  set the instant the boss falls; the victory screen waits `VICTORY_DELAY` (1.2 s)
+  for the corpse to finish toppling. In between, this script refuses to touch the
+  pause flag while `scenes/ui/` had not yet retired the panel — so opening it in
+  that beat gave a panel over a live level, freezing nothing, against an invariant
+  that folder states unconditionally. `_on_boss_died()` now retires the panel
+  *before* the wait rather than with the screen. Cross-review of PR #62 found it,
+  and it is the second time a `_run_over` window has needed closing on both sides
+  of a wait — `_on_hero_died()` tests it twice for the same reason.
 
 ## Navmesh gotchas (learned the hard way)
 

@@ -168,10 +168,18 @@ PR, so the constraints run outward as well as in:
 - **It asserts all of that without reading a single `scenes/ui/` node**, which is
   the deliberate part. Everything the panel prints comes from the hero, so the
   hero is where it can be checked — and this folder's boundary below stays true.
-  What that leaves unproven is that the panel *renders*: a throwaway script drove
-  the real `HUD` for PR #62 and found two layout faults, and that script was not
-  kept. Issue #55 is the standing question of whether throwaways like it belong
-  here; this is a second data point for it.
+  What that leaves unproven is anything about the screen itself, and PR #62 wrote
+  **two** throwaways against it rather than one. The first drove the real `HUD`
+  and, with a screenshot, found two layout faults. The second reproduced a
+  cross-review finding — a 1.2 s window after the boss dies in which the panel
+  could be opened over a still-running level — and was run against the code with
+  the fix backed out to prove it discriminated, which is the same discipline the
+  cycle check above owes. Neither was kept, and both reached into `scenes/ui/`
+  private members to do their work, which is exactly why they are not here.
+  **Issue #55 is the standing question of whether throwaways like these belong in
+  this folder; PR #62 is two more data points for it, and the second is the
+  stronger kind — a test that caught a real regression window rather than
+  confirming something already believed.**
 - **It also settled what that rule says**, which is the more interesting half.
   The check is per checkpoint over the placements a respawn *there* restores;
   three folder docs stated it over every placement on the map, and measuring it

@@ -269,6 +269,12 @@ func _on_hero_died() -> void:
 func _on_boss_died(_boss: Zombie) -> void:
 	# Before the wait, not after — see the guard in _on_hero_died().
 	_run_over = true
+	# Also before the wait, and for a reason of its own: from this line on this
+	# script refuses to touch the pause flag, so a skill panel opened during the
+	# beat below would come up over a level that is still running. Retiring it here
+	# rather than with the victory screen keeps "the game freezes while it is up"
+	# true without an exception. Cross-review of PR #62 found the window.
+	_hud.retire_skill_panel()
 	await get_tree().create_timer(VICTORY_DELAY).timeout
 	if not is_inside_tree():
 		return

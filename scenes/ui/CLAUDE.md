@@ -169,10 +169,17 @@ elsewhere:
   `skill_panel_toggled(open)` reports; `scenes/main.gd` sets `get_tree().paused`,
   because that flag lives on the `SceneTree` rather than the scene and needs
   exactly one owner — the same argument the victory panel makes.
-- **It does not decide when it is unavailable.** `show_victory()` calls
-  `set_unavailable()` on it, which is this folder keeping "the victory panel owns
-  the screen" true from the inside. A skill panel openable behind a won run would
-  also *unpause* it on the way out, which is the sharper version of the same rule.
+- **It does not decide when it is unavailable.** Two callers retire it, and they
+  fire at different moments on purpose. `show_victory()` does, which is this
+  folder keeping "the victory panel owns the screen" true from the inside — a
+  skill panel openable behind a won run would also *unpause* it on the way out.
+  And `retire_skill_panel()` does, called by `scenes/main.gd` the instant the boss
+  falls, **~1.2 s before the screen appears**. That gap is why the second exists:
+  the run is decided when the boss dies, and from that moment that script stops
+  touching the pause flag, so a panel opened during the beat would come up over a
+  level still running and freeze nothing. Cross-review of PR #62 found it. The
+  freeze below is stated without an exception, and this is what keeps that honest
+  rather than nearly true.
 
 **It carries `PROCESS_MODE_ALWAYS` for the reason the victory panel does**, and
 needs it twice over: a paused node receives neither input nor GUI dispatch, so

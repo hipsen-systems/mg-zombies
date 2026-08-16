@@ -130,6 +130,19 @@ func _on_skill_panel_toggled(open: bool) -> void:
 		_clear_flashes()
 
 
+## The run is over; the skill panel is finished for good.
+##
+## Separate from [method show_victory] because the two do not happen at the same
+## moment: the run is decided when the boss falls, and the screen waits a beat for
+## the corpse to finish toppling. Between those, `scenes/main.gd` has stopped
+## answering for the pause — so a panel that could still be opened in that gap
+## would come up over a live level and *not* freeze it, which is the one thing
+## this folder promises about it unconditionally. Cross-review of PR #62 found the
+## window; it is ~1.2 s wide and this is what closes it.
+func retire_skill_panel() -> void:
+	_skill_panel.set_unavailable()
+
+
 ## Point the info bar at the selected unit. Connected to
 ## [signal UnitSelection.selection_changed].
 func show_unit(unit: Node3D) -> void:
