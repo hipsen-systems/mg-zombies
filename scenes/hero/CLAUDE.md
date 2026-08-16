@@ -1,17 +1,20 @@
 ---
-depends-on: [scenes, scenes/components, scenes/enemies, scenes/map, scenes/ui, assets]
+depends-on: [scenes, scenes/components, scenes/enemies, scenes/map, scenes/skills, scenes/ui, assets]
 ---
 
 # scenes/hero/
 
 The player-controlled hero (issue #5: movement; issue #7: taking damage and
-dying; issue #11: his own attack; issue #38: coming back from a death).
+dying; issue #11: his own attack; issue #38: coming back from a death; issue #8:
+levelling up and spending what a level pays; issue #9: spending it on an
+authored tree).
 
 - `hero.tscn` — `CharacterBody3D` (collision layer 3, mask 1|2 — see the
   layer table in `scenes/CLAUDE.md`) with a placeholder capsule + a small
   "nose" box marking the facing direction **under a `Visual` node**, a
-  `CollisionShape3D`, a `NavigationAgent3D`, and a `Health` child (100 HP,
-  `scenes/components/`). In the `hero` group — that is how zombies find him,
+  `CollisionShape3D`, a `NavigationAgent3D`, a `Health` child (100 HP,
+  `scenes/components/`) and an `Experience` child from the same folder. In the
+  `hero` group — that is how zombies find him,
   so don't rename it. The KayKit Knight is already in the repo
   (`assets/characters/hero/Knight.glb`, imported in issue #12) — swapping the
   capsule for it is outstanding work, not a pending dependency. The node
@@ -33,6 +36,12 @@ the control model the whole game is styled after. Actions are in
 | `A` then left-click (`attack_move` + `select_command`) | attack it | attack-move there |
 | Left-click alone (`select_command`) | select it | select the hero back |
 | `A` again, or `Escape` (`cancel_command`) | disarms `A` | disarms `A` |
+| `1` / `2` (`skill_strength` / `skill_health`) | buys a rank — see Skills | buys a rank — see Skills |
+
+**`1` and `2` are the only inputs here that are not commands**, which is why the
+last row reads the same on both sides: they spend a point and touch nothing
+about what the hero is doing. In particular they do **not** disarm `A` and do
+not cancel an order — a player banking a level mid-fight keeps the fight.
 
 `A` toggles rather than latching, and a right-click also disarms it, so there
 are three ways out of the armed state and none of them requires knowing which.
@@ -94,10 +103,10 @@ movement need per-frame precision.
 
 ## Stats
 
-All exports, not constants, because the skill tree (issue #9) will want to
-modify them and a `const` is not a seam. There is deliberately **no stat or
-modifier system yet** — that is issue #9's job, and inventing one here would
-prejudge it.
+All exports, not constants, because the skill tree modifies them and a `const`
+is not a seam. The export value is **the hero as authored**: it is captured in
+`_ready()` as the base every skill is folded onto, so what the inspector shows
+is what a hero with no ranks has.
 
 | Export | Default | Note |
 |--------|---------|------|
@@ -108,6 +117,19 @@ prejudge it.
 | `acquire_radius` | 9.0 | Under the zombie's 12 detection: he is noticed first |
 | `regen_delay` / `regen_per_second` | 5.0 / 4.0 | See below |
 | `display_name` | `"Hero"` | What the unit info bar calls him |
+| `skill_tree` | `scenes/skills/default_tree.tres` | What his points can be spent on |
+
+**Six of them are sellable and the rest are not**, and the list — `SKILL_STATS`
+— is the whole of what this hero accepts from a tree. Two omissions are
+decisions rather than gaps:
+
+- **`acquire_radius`**, because `scenes/map/`'s 4-cell respawn clearance is
+  measured against it. See the respawn note under Gotchas.
+- **`regen_delay`**, because it is the *gate* on regeneration rather than the
+  rate, and the paragraph below already records that the gate is time-only and
+  why that is defensible today. Selling the delay down is what would make a long
+  approach heal him mid-fight; selling `regen_per_second` up only shortens the
+  downtime between fights, which is what the stat is for.
 
 `unit_info()` reports the name plus damage, cooldown and move speed for that
 bar. Display-only, and the hero picks *which* of his numbers is the interesting
@@ -140,8 +162,71 @@ the map easily outlasts `regen_delay`.
 
 What would change the answer is a stat that makes the *approach* part of the
 fight — a ranged attacker, or anything that lets an enemy hurt him on the way
-in. Issue #9 should re-read this paragraph before it starts moving these
-numbers.
+in. **Issue #9 read this paragraph and left the gate alone**: the tree sells
+`regen_per_second` and deliberately not `regen_delay`, so a build can shorten
+the downtime between fights without ever healing during one.
+
+## Skills (issues #8 and #9)
+
+Points come from the `Experience` child; what they buy comes from a `SkillTree`
+in `scenes/skills/`. Issue #8's two hard-coded skills and their per-rank exports
+are **gone rather than extended**, which is what that section said should happen
+to them.
+
+**This folder owns the ledger and the fold; `scenes/skills/` owns the tree.**
+It is the same split `Experience` already draws — it counts levels and never
+touches a stat, because deciding what a point *buys* needs to know whose stats
+they are. The tree stops one step further out: it knows costs, ranks and
+prerequisites, and nothing about what a stat name means.
+
+- **`_skill_ranks` is the ledger**, `{id: rank}` with only bought skills in it,
+  which is also exactly what a save file would have to store. `skill_ranks()`
+  hands out a copy.
+- **`_apply_skills()` is the fold**, recomputing every sellable stat from the
+  base captured in `_ready()`: `(base + Σadd) × Πscale`. Three properties fall
+  out of that and all three are the point — it is idempotent, so calling it on
+  every purchase cannot drift; the order ranks were bought in cannot change the
+  result; and undoing it is free, which is what a respec would rest on.
+  Accumulating onto the live value instead goes wrong the first time anything
+  else ever writes to a stat, and cannot be reversed at all.
+- **Effects apply themselves through `add_stat()` / `scale_stat()`**, which are
+  public for exactly that reason and meaningful only during a recompute. The
+  hero never switches on effect *kind*, so a behaviour grant later is a new
+  subclass in `scenes/skills/` rather than a branch in here.
+- **`_write_stat()` is the one place a stat name becomes a property**, and the
+  one place the exception lives: `max_health` belongs to the `Health` child and
+  goes through `set_max_health()`, which heals by the difference rather than
+  diluting the bar.
+- **`skill_problems()` has two callers on purpose** — `_ready()` turns it into
+  errors, `tests/` asserts it is empty. It is the tree's own `validate()` plus
+  the one check only this folder can make: that every stat an effect names is
+  one this hero actually has. Stat names are strings, so an unchecked typo is a
+  point spent on nothing at all.
+- **`spend_skill_point()` still refuses silently** and returns whether it bought
+  anything; `skill_refusal()` is the same question with a reason, for a panel
+  that wants to say more. The ordering inside it is unchanged and still matters:
+  everything is checked *before* `Experience.spend()`, because debiting first
+  would mean handing points back.
+
+**`1` and `2` are temporary bindings, and they live here rather than in the
+tree.** Which key buys what is a fact about this hero's control scheme;
+`scenes/skills/` must not learn about input actions, or a tree could not be
+shared with a second actor or re-bound without editing game content.
+`SKILL_HOTKEYS` is that mapping, and it reaches two of the tree's six nodes —
+the rest are buyable only through `spend_skill_point()` until there is a panel
+to click, which is the state a design PR with no UI leaves behind.
+
+`skill_summary()` accordingly reports **the bound skills, not the whole tree**:
+that HUD line is a reminder of what the keys do, and a node the player cannot
+press has no business on it. It still carries ranks and effect text for the same
+reason `unit_info()` carries stats — what a rank *does* is a fact about this
+actor, and a panel that formatted it would have to be edited for every new
+skill. See the contract in `scenes/ui/CLAUDE.md`.
+
+**A level pays points and raises nothing by itself.** That rule is the game's,
+not this folder's — it lives in the root `CLAUDE.md` — and this is the folder
+that could break it silently, since it owns every stat a level might be tempted
+to touch. `tests/smoke_progression.gd` asserts it directly.
 
 ## Picking things out of the world
 
@@ -225,6 +310,14 @@ numbers.
   `Health.revive()` is called last, so `health_changed` reaches the HUD with the
   hero already alive and standing where he belongs.
 
+  **A death costs no progression**, and `respawn_at()` needed no line to make
+  that true: XP, level, points and ranks live on the `Experience` child and in
+  the rank ledger, neither of which a respawn touches. `Health.revive()` fills
+  him to whatever ceiling his Health ranks have bought, because
+  `set_max_health()` moved the ceiling itself rather than adding a bonus on top
+  of it. Discarding a run's progression is a *restart*, and that is a scene
+  reload owned by `scenes/main.gd` — see the asymmetry it documents.
+
   Two pieces of that are easy to miss. **The nav agent's target**, which nothing
   else clears — leave it and the first order of the new life is judged finished
   or not against a destination from the previous one. And **the timers**, which
@@ -246,8 +339,11 @@ numbers.
   is `scenes/map/`'s rule that nothing a respawn *restores* stands within 4 cells
   of the cell it puts him on — 16 units, well outside `acquire_radius` (9) — so
   there is nothing to acquire on the frame he comes back. That is the invariant
-  to re-check if a checkpoint is ever placed with less clearance, or if issue #9
-  grows these radii. Cross-review caught this stated backwards: the code was
+  to re-check if a checkpoint is ever placed with less clearance. **Issue #9 is
+  where it stopped resting on nobody noticing**: `acquire_radius` is left out of
+  `SKILL_STATS` so no skill can grow it, and `tests/smoke_skills.gd` asserts that
+  a fully invested hero still sees less far than a respawn is cleared for.
+  Cross-review caught this stated backwards: the code was
   right and the reason attached to it was inverted, which is the same failure the
   doc lesson on #36 records.
 
@@ -274,14 +370,33 @@ numbers.
   for the selection UI in issue #36; that turned out to be wrong, because
   selection is deliberately inert and reads nothing about what the hero is
   doing. They now have no planned consumer.
-  Emits `killed(victim)`, the XP hook for issue #8,
-  fired from the swing that lands the killing blow so attribution is exact
-  rather than "something died". Emits `attack_move_armed_changed(armed)`, which
+  Emits `killed(victim)`, **consumed by `scenes/main.gd` since issue #8** after
+  being emitted and dropped since #11. It fires from the swing that lands the
+  killing blow, so attribution is exact rather than "something died" — which is
+  why it won the XP hook over `Zombie.died`, a signal any source of damage would
+  trigger. Emits `attack_move_armed_changed(armed)`, which
   `scenes/main.gd` consumes to show the armed-attack indicator, and `died`,
   which `scenes/main.gd` answers with `respawn_at()` at the armed checkpoint.
+  Emits `skill_ranked_up(skill, rank)` **after** the stat it bought has been
+  applied, so a listener reads the new numbers rather than the old ones.
   Consumes `Health.died` from its own child, and calls `Health.revive()` on the
   way back.
+- **The skill tree is a resource, not a node** (`scenes/skills/`), preloaded as
+  the `skill_tree` export's default so no hero is ever accidentally left without
+  one. It holds no ranks, so the single shared instance is correct rather than a
+  bug waiting to happen — the per-hero half is `_skill_ranks` here. What this
+  folder owes it is `add_stat()` / `scale_stat()` and a recompute-from-base
+  fold; that contract is stated in its doc.
+- **`gain_experience(amount)` is the XP entry point**, and it exists so that
+  `scenes/main.gd` never reaches into the `Experience` child — the same
+  convention `take_damage()` follows for `Health`, and the same seam that lets
+  the hero react to a level later without every caller learning about it. It
+  deliberately has *no* `_dead` guard where `take_damage()` does: refusing damage
+  to a corpse is the rule, but refusing credit to one would swallow a kill that
+  lands after he falls. Nothing produces one today; the first damage-over-time
+  effect can, and losing XP is the worse direction to be wrong in.
+  `spend_skill_point()` calls `Experience.spend()` the same way.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: 091dfa6 -->
+<!-- verified-against: aeec030 -->

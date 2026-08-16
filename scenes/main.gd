@@ -79,6 +79,15 @@ func _ready() -> void:
 	_hero.health.health_changed.connect(_hud.set_hero_health)
 	_hero.died.connect(_on_hero_died)
 	_hero.attack_move_armed_changed.connect(_hud.set_attack_move_armed)
+	# Progression (issue #8). `killed` has been emitted and unconsumed since
+	# issue #11 waiting for exactly this.
+	_hero.killed.connect(_on_hero_killed)
+	_hero.experience.xp_changed.connect(_hud.set_experience)
+	_hero.experience.leveled_up.connect(_hud.flash_level_up)
+	# Two signals, one panel: the points total and the ranks are drawn together,
+	# and each of these moves one of them.
+	_hero.experience.points_changed.connect(_refresh_skills.unbind(1))
+	_hero.skill_ranked_up.connect(_refresh_skills.unbind(2))
 	# The hero owns the left mouse button because he owns the command scheme it
 	# belongs to, and hands on the clicks his attack command did not take.
 	_hero.select_clicked.connect(_selection.select_at)
@@ -88,9 +97,36 @@ func _ready() -> void:
 	_hud.restart_requested.connect(_restart_run)
 
 	_hud.set_hero_health(_hero.health.current, _hero.health.max_health)
+	# Same reason the health bar is pushed by hand: nothing re-sends these, so a
+	# HUD connected after the fact would draw an empty XP bar until the first kill.
+	_hero.experience.emit_current()
+	_refresh_skills()
 	# Last, and after the connection above: the hero starts selected, and the
 	# info bar only learns that from the signal this emits.
 	_selection.select_unit(_hero)
+
+
+## The hero landed a killing blow, so he is paid for it (issue #8).
+##
+## [b]The victim says what it is worth[/b], rather than a table here deciding
+## what each enemy type pays: this script already knows both enemy scenes, but a
+## reward it owned would have to be edited for every new one, and the value is a
+## fact about the thing that died. Same rule that lets a unit report its own
+## stats to the info bar. A victim with no reward is worth nothing rather than
+## an error, which is what keeps the hero's contract with the enemies group at
+## the two methods it has always been.
+## Granted through the hero rather than into his Experience child, the same way
+## an attacker calls take_damage() rather than reaching for his Health — see the
+## convention in scenes/components/CLAUDE.md.
+func _on_hero_killed(victim: Node3D) -> void:
+	var reward = victim.get(&"xp_reward")
+	_hero.gain_experience(float(reward) if reward != null else 0.0)
+
+
+## Redraw the skill line. Both the points total and the ranks live on it, and the
+## two move independently, so it is one method rather than two half-updates.
+func _refresh_skills() -> void:
+	_hud.set_skills(_hero.experience.skill_points, _hero.skill_summary())
 
 
 ## One zombie per `Z` cell from [param from_segment] onward. The map says where

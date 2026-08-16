@@ -19,23 +19,30 @@ extends CanvasLayer
 ## "start another one" does is that script's decision and not a widget's.
 signal restart_requested
 
-## How long the checkpoint confirmation holds before it starts fading, and how
-## long the fade takes. Long enough to read mid-fight, short enough that it is
-## gone before the fight the checkpoint was banked for.
-const CHECKPOINT_HOLD := 1.1
-const CHECKPOINT_FADE := 0.7
+## How long a transient banner holds before it starts fading, and how long the
+## fade takes. Long enough to read mid-fight, short enough that it is gone
+## before the fight the checkpoint was banked for.
+const FLASH_HOLD := 1.1
+const FLASH_FADE := 0.7
 
 @onready var _hero_health_bar: ProgressBar = $HeroHealthBar
 @onready var _hero_health_value: Label = $HeroHealthBar/Value
+@onready var _xp_bar: ProgressBar = $XPBar
+@onready var _xp_value: Label = $XPBar/Value
+@onready var _skills_label: Label = $SkillsLabel
 @onready var _attack_move_label: Label = $AttackMoveLabel
 @onready var _death_label: Label = $DeathLabel
 @onready var _death_sub_label: Label = $DeathSubLabel
 @onready var _checkpoint_label: Label = $CheckpointLabel
+@onready var _level_up_label: Label = $LevelUpLabel
 @onready var _unit_info_bar: UnitInfoBar = $UnitInfoBar
 @onready var _victory_panel: Control = $VictoryPanel
 @onready var _restart_button: Button = $VictoryPanel/RestartButton
 
-var _checkpoint_tween: Tween = null
+## The running fade for each flashing label, so two banners up at once do not
+## share one tween — arming a checkpoint and levelling on the same kill is an
+## ordinary thing to do, not a corner case.
+var _flash_tweens := {}
 
 
 func _ready() -> void:
@@ -55,6 +62,36 @@ func set_hero_health(current: float, maximum: float) -> void:
 	_hero_health_value.text = "%d / %d" % [roundi(current), roundi(maximum)]
 
 
+## The XP bar and the level beside it (issue #8). Both numbers are measured
+## toward the *next* level rather than cumulatively, which is what the bar draws.
+func set_experience(current: float, needed: float, level: int) -> void:
+	_xp_bar.max_value = maxf(needed, 1.0)
+	_xp_bar.value = current
+	_xp_value.text = "Lv %d     %d / %d XP" % [level, floori(current), roundi(needed)]
+
+
+## The unspent points and what they can be spent on.
+##
+## [param skills] is what the unit reports about itself — see
+## [method Hero.skill_summary]. This method formats and never interprets: the
+## effect strings are the hero's words, because what a rank buys is a fact about
+## him and a panel that knew it would have to be updated with every new skill.
+func set_skills(points: int, skills: Array) -> void:
+	var parts: PackedStringArray = ["%d point%s" % [points, "" if points == 1 else "s"]]
+	for skill in skills:
+		parts.append("[%s] %s %d/%d  %s" % [
+			skill.get("hotkey", "?"),
+			skill.get("name", "?"),
+			int(skill.get("rank", 0)),
+			int(skill.get("max_rank", 0)),
+			skill.get("effect", ""),
+		])
+	_skills_label.text = "    ".join(parts)
+	# The points total is the only part that ever needs chasing: it is what turns
+	# a keypress from a no-op into a purchase.
+	_skills_label.modulate = Color(1, 0.85, 0.4) if points > 0 else Color(0.72, 0.76, 0.84)
+
+
 ## Point the info bar at the selected unit. Connected to
 ## [signal UnitSelection.selection_changed].
 func show_unit(unit: Node3D) -> void:
@@ -68,11 +105,13 @@ func set_attack_move_armed(armed: bool) -> void:
 
 
 func show_death() -> void:
-	# Cancel any checkpoint flash still fading. Arming a checkpoint and dying
-	# seconds later is not a corner case — a zombie chasing the hero across a
-	# threshold produces exactly that — and "CHECKPOINT" fading out behind "YOU
-	# DIED" reads as congratulating the player on the death.
-	_clear_checkpoint_flash()
+	# Cancel any banner still fading. Arming a checkpoint and dying seconds later
+	# is not a corner case — a zombie chasing the hero across a threshold produces
+	# exactly that — and "CHECKPOINT" fading out behind "YOU DIED" reads as
+	# congratulating the player on the death. "LEVEL 3" does it twice over: the
+	# kill that levels the hero is very often the one that leaves him low enough
+	# for the next zombie to finish.
+	_clear_flashes()
 	_death_label.show()
 	_death_sub_label.show()
 
@@ -91,9 +130,10 @@ func hide_death() -> void:
 ## reach — and the death screen's [method hide_death] is the counter-example that
 ## makes the distinction worth stating rather than assuming.
 func show_victory() -> void:
-	# Same reason show_death() does it: a "CHECKPOINT" still fading out under the
-	# end of the run is reading out the wrong moment.
-	_clear_checkpoint_flash()
+	# Same reason show_death() does it: a "CHECKPOINT" or a "LEVEL 4" still fading
+	# out under the end of the run is reading out the wrong moment — and the boss
+	# is worth enough XP that the winning blow very often levels the hero.
+	_clear_flashes()
 	# The death screen is a different case and worth being honest about: it
 	# cannot be up, because scenes/main.gd stops answering a death once the run
 	# is won. Taking it down anyway makes this panel's claim on the screen a rule
@@ -111,19 +151,47 @@ func show_victory() -> void:
 ## The lit pad in the world is the lasting signal; this is the one that reaches a
 ## player who is watching the fight rather than the floor they just crossed.
 func flash_checkpoint() -> void:
-	_clear_checkpoint_flash()
-	_checkpoint_label.modulate.a = 1.0
-	_checkpoint_label.show()
-	_checkpoint_tween = create_tween()
-	_checkpoint_tween.tween_interval(CHECKPOINT_HOLD)
-	_checkpoint_tween.tween_property(_checkpoint_label, "modulate:a", 0.0, CHECKPOINT_FADE)
-	_checkpoint_tween.tween_callback(_checkpoint_label.hide)
+	_flash(_checkpoint_label)
 
 
-## Kill a running fade and take the label down. Both callers need the tween
+## Announce a level and what it paid (issue #8).
+##
+## The bar below already shows both, and this exists because it does not *reach*
+## a player mid-fight — which is exactly when the kill that levelled them
+## happened. Same argument as the checkpoint flash, and it sits on its own line
+## above it so a kill that does both is legible rather than one banner over the
+## other.
+func flash_level_up(level: int, points_awarded: int) -> void:
+	_level_up_label.text = "LEVEL %d — %d skill point%s" % [
+		level, points_awarded, "" if points_awarded == 1 else "s",
+	]
+	_flash(_level_up_label)
+
+
+## Bring a transient banner up and fade it out again.
+func _flash(label: Label) -> void:
+	_clear_flash(label)
+	label.modulate.a = 1.0
+	label.show()
+	var tween := create_tween()
+	_flash_tweens[label] = tween
+	tween.tween_interval(FLASH_HOLD)
+	tween.tween_property(label, "modulate:a", 0.0, FLASH_FADE)
+	tween.tween_callback(label.hide)
+
+
+## Kill a running fade and take the label down. Every caller needs the tween
 ## stopped first: it drives `modulate:a`, so it would keep animating a hidden
 ## label and then re-hide it a second later, over whatever came next.
-func _clear_checkpoint_flash() -> void:
-	if _checkpoint_tween != null and _checkpoint_tween.is_valid():
-		_checkpoint_tween.kill()
-	_checkpoint_label.hide()
+func _clear_flash(label: Label) -> void:
+	var tween: Tween = _flash_tweens.get(label)
+	if tween != null and tween.is_valid():
+		tween.kill()
+	_flash_tweens.erase(label)
+	label.hide()
+
+
+## Take every banner down at once, for the two screens that own the whole view.
+func _clear_flashes() -> void:
+	_clear_flash(_checkpoint_label)
+	_clear_flash(_level_up_label)

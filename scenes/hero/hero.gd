@@ -39,11 +39,15 @@ signal move_ordered(world_point: Vector3)
 ## A+click, or by acquiring a target on his own.
 signal attack_ordered(target: Node3D)
 
-## Emitted when a target dies from this hero's damage. The XP hook for issue #8;
-## nothing consumes it yet. Attribution is exact — it fires from the swing that
-## landed the killing blow, not from the victim's own death signal, which any
-## source of damage would trigger.
+## Emitted when a target dies from this hero's damage. The XP hook for issue #8,
+## and scenes/main.gd is what consumes it. Attribution is exact — it fires from
+## the swing that landed the killing blow, not from the victim's own death
+## signal, which any source of damage would trigger.
 signal killed(victim: Node3D)
+
+## Emitted when a skill point has been spent and the stat it bought has already
+## been applied, so a listener reads the new numbers rather than the old ones.
+signal skill_ranked_up(skill: StringName, rank: int)
 
 ## Emitted when the attack command is armed or disarmed, so the HUD can show
 ## the player that the next left-click means "attack" rather than "select".
@@ -114,6 +118,47 @@ const RETARGET_INTERVAL := 0.2
 ## How far the visual jabs forward on a swing, in metres.
 const SWING_LUNGE := 0.45
 
+## Every stat a skill point is allowed to move (issue #9), and the whole of what
+## this hero accepts from a [SkillTree]. Effects name stats as strings, so this
+## list is what turns a typo in an authored tree into a load-time complaint
+## rather than a skill that quietly does nothing — see [method skill_problems].
+##
+## Note what is [i]not[/i] here. [member acquire_radius] is deliberately not
+## sellable: `scenes/map/` guarantees that nothing a respawn restores stands
+## within 4 cells (16 units) of where it puts the hero, and that clearance is
+## measured against this radius. A skill that grew it past 16 would let a
+## respawn land him already in a fight, breaking an invariant three folders lean
+## on — and it would break it in another folder's file. If it should ever be
+## buyable, the clearance is the thing to change first.
+const SKILL_STATS: Array[StringName] = [
+	&"attack_damage",
+	&"attack_range",
+	&"attack_cooldown",
+	&"move_speed",
+	&"regen_per_second",
+	&"max_health",
+]
+
+## The stat that does not live on this node. It belongs to the Health child, and
+## it has to go through [method Health.set_max_health] rather than a plain write
+## because moving the ceiling also heals by the difference.
+const STAT_MAX_HEALTH := &"max_health"
+
+## Which key buys which skill, until there is a panel to click (issue #9 is the
+## data model; the tree is deliberately larger than the keyboard).
+##
+## [b]Kept here rather than in the tree data on purpose.[/b] Which key buys what
+## is a fact about this hero's control scheme, and `scenes/skills/` must not
+## learn about input actions — a tree that carried them could not be shared with
+## a second actor, or re-bound without editing game content. The cost is that
+## the four nodes without a key are reachable only through
+## [method spend_skill_point] until the panel lands, which is the honest state
+## for a design PR that ships no UI.
+const SKILL_HOTKEYS := [
+	{"action": &"skill_strength", "key": "1", "skill": &"strength"},
+	{"action": &"skill_health", "key": "2", "skill": &"health"},
+]
+
 ## What the unit info bar calls him. An export rather than a constant for the
 ## same reason the stats are: it is per-instance, so a named or unique hero
 ## needs no new code.
@@ -143,6 +188,15 @@ const SWING_LUNGE := 0.45
 @export var regen_delay := 5.0
 @export var regen_per_second := 4.0
 
+@export_group("Skills")
+## What this hero's points can be spent on (issue #9).
+##
+## An export so a second actor — or a test — can be given a different tree, and
+## a default so no hero is ever accidentally left without one. The resource is
+## content and holds no ranks, so every hero sharing this instance is correct
+## rather than a bug waiting to happen: the ledger below is the per-hero half.
+@export var skill_tree: SkillTree = preload("res://scenes/skills/default_tree.tres")
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _dead := false
 
@@ -159,13 +213,38 @@ var _retarget_timer := 0.0
 var _regen_timer := 0.0
 var _swing_tween: Tween = null
 
+## Skill id → ranks bought. Only bought skills appear, so this dictionary is
+## also exactly what a save file would have to store — the tree is content and
+## can be reloaded, the ranks cannot be reconstructed from anything.
+var _skill_ranks := {}
+
+## The stats as authored, captured before any rank was bought. Kept because
+## ranks are *recomputed* from these rather than accumulated onto the live
+## values: adding a bonus on each purchase drifts the moment anything else ever
+## writes to a stat, and cannot be undone by a respec.
+var _base_stats := {}
+
+## Accumulators for one recompute — see [method _apply_skills]. Members rather
+## than locals so [method add_stat] and [method scale_stat] can be the small
+## public surface a [SkillEffect] applies itself through.
+var _stat_added := {}
+var _stat_scaled := {}
+
 @onready var health: Health = $Health
+@onready var experience: Experience = $Experience
 @onready var _nav_agent: NavigationAgent3D = $NavigationAgent3D
 @onready var _visual: Node3D = $Visual
 
 
 func _ready() -> void:
 	health.died.connect(_on_health_died)
+	for stat in SKILL_STATS:
+		_base_stats[stat] = _read_stat(stat)
+	# Loud rather than silent: a tree whose ids or stat names are wrong produces
+	# skills that refuse or do nothing, which reads in play as a balance problem
+	# and is not one.
+	for problem in skill_problems():
+		push_error("skill tree: %s" % problem)
 
 
 func is_dead() -> bool:
@@ -182,6 +261,21 @@ func take_damage(amount: float) -> void:
 	health.take_damage(amount)
 
 
+## XP entry point, and [method take_damage]'s counterpart: whoever is paying the
+## hero calls this rather than reaching into the Experience child, so he stays
+## free to react to a level later — a flourish, a heal, a shout — without every
+## caller learning about it.
+##
+## Deliberately has no `_dead` guard where [method take_damage] does, and the
+## asymmetry is the point: refusing damage to a corpse is the rule, whereas
+## refusing *credit* to one would silently swallow a kill that lands after the
+## hero falls. Nothing can produce one today — he cannot swing while dead — but
+## the first damage-over-time effect can, and losing XP is the worse direction
+## to be wrong in.
+func gain_experience(amount: float) -> void:
+	experience.grant(amount)
+
+
 ## Headline stats for the unit info bar (scenes/ui/, issue #36).
 ##
 ## The unit reports its own numbers rather than the panel reaching in for named
@@ -195,6 +289,164 @@ func unit_info() -> Dictionary:
 		"attack_cooldown": attack_cooldown,
 		"move_speed": move_speed,
 	}
+
+
+# --- Skills ------------------------------------------------------------------
+
+## How many ranks of [param skill] have been bought. Unknown skills read 0.
+func skill_rank(skill: StringName) -> int:
+	return int(_skill_ranks.get(skill, 0))
+
+
+## The ledger, as the save file a run does not have yet would store it. Copied
+## rather than handed out, because it is the one piece of state a caller could
+## corrupt into ranks nobody paid for.
+func skill_ranks() -> Dictionary:
+	return _skill_ranks.duplicate()
+
+
+## Why the next rank of [param skill] cannot be bought right now, or "".
+##
+## The tree answers what is a property of the tree — unknown skill, capped rank,
+## prerequisite not met — and this adds the only part it deliberately cannot
+## know, which is whether the points are there.
+func skill_refusal(skill: StringName) -> String:
+	if skill_tree == null:
+		return "this hero has no skill tree"
+	var refusal := skill_tree.refusal(skill, _skill_ranks)
+	if not refusal.is_empty():
+		return refusal
+	var cost := skill_tree.cost_of_next_rank(skill)
+	if experience.skill_points < cost:
+		return "costs %d point%s" % [cost, "" if cost == 1 else "s"]
+	return ""
+
+
+## Buy a rank of [param skill], if it is unlocked, not capped, and affordable.
+## Returns whether anything happened, so a caller can answer a refused keypress
+## without inspecting the ledger itself.
+##
+## Refusal is silent by design here: a HUD showing 0 points already says why,
+## and there is nothing a player can do about it but go and kill something.
+## [method skill_refusal] is there for a panel that wants to say more.
+func spend_skill_point(skill: StringName) -> bool:
+	if not skill_refusal(skill).is_empty():
+		return false
+	# Last, and only once the rank is known to be buyable: spend() debits the
+	# points, so a check after it would have to hand them back.
+	if not experience.spend(skill_tree.cost_of_next_rank(skill)):
+		return false
+	_skill_ranks[skill] = skill_rank(skill) + 1
+	_apply_skills()
+	skill_ranked_up.emit(skill, skill_rank(skill))
+	return true
+
+
+## The skills a keypress can buy, their ranks and what each has bought, for the
+## HUD's crib line.
+##
+## Reported by the hero rather than assembled by the panel, exactly as
+## [method unit_info] is and for the same reason: what a rank *does* is a fact
+## about this actor, and a screen that formatted it would have to learn the
+## effects to display them.
+##
+## [b]Deliberately the bound skills and not the whole tree.[/b] That line is a
+## reminder of what the keys do; a node the player cannot press has no business
+## on it, and six of them would not fit anyway. Drawing the rest is the skill
+## panel's job.
+func skill_summary() -> Array[Dictionary]:
+	var summary: Array[Dictionary] = []
+	if skill_tree == null:
+		return summary
+	for binding in SKILL_HOTKEYS:
+		var node := skill_tree.node(binding["skill"])
+		if node == null:
+			continue
+		summary.append({
+			"name": node.display_name,
+			"hotkey": binding["key"],
+			"rank": skill_rank(node.id),
+			"max_rank": node.max_rank,
+			"effect": node.describe(skill_rank(node.id)),
+		})
+	return summary
+
+
+## Everything wrong with this hero's tree: the faults the tree can see itself,
+## plus the one only an actor can — an effect naming a stat this hero does not
+## have. Empty when it is sound.
+##
+## One implementation with two callers on purpose: [method _ready] turns it into
+## errors, and `tests/` asserts it is empty. A stringly-typed stat name is the
+## price of keeping `scenes/skills/` ignorant of this file, and an unchecked
+## typo would spend a point on nothing at all.
+func skill_problems() -> PackedStringArray:
+	if skill_tree == null:
+		return PackedStringArray(["this hero has no skill tree"])
+	var problems := skill_tree.validate()
+	for stat in skill_tree.stats_used():
+		if not SKILL_STATS.has(stat):
+			problems.append("no such stat on this hero: %s" % stat)
+	for binding in SKILL_HOTKEYS:
+		if skill_tree.node(binding["skill"]) == null:
+			problems.append("%s is bound to missing skill %s" % [binding["key"], binding["skill"]])
+	return problems
+
+
+## An additive contribution to [param stat], from a [SkillEffect] applying
+## itself. Only meaningful during a recompute.
+func add_stat(stat: StringName, amount: float) -> void:
+	_stat_added[stat] = float(_stat_added.get(stat, 0.0)) + amount
+
+
+## A multiplicative contribution to [param stat]. Every one of these lands after
+## every [method add_stat] — see [method _apply_skills].
+func scale_stat(stat: StringName, factor: float) -> void:
+	_stat_scaled[stat] = float(_stat_scaled.get(stat, 1.0)) * factor
+
+
+## Recompute every sellable stat from the value it was authored with plus the
+## ranks bought so far.
+##
+## [b]Three properties fall out of doing it this way, and all three are the
+## point.[/b] It is idempotent, so calling it on every purchase cannot drift.
+## The order ranks were bought in cannot change the result, because the fold is
+## sum-the-adds-then-multiply-the-scales rather than a running total — which is
+## the whole of the stacking rule this game has. And undoing it is free: a
+## respec clears the ledger and calls this, and the hero is back to the numbers
+## he was authored with, with nothing to unwind.
+func _apply_skills() -> void:
+	_stat_added.clear()
+	_stat_scaled.clear()
+	for skill in _skill_ranks:
+		var rank := skill_rank(skill)
+		var node := skill_tree.node(skill)
+		if rank <= 0 or node == null:
+			continue
+		for effect in node.effects:
+			if effect != null:
+				effect.apply(self, rank)
+	for stat in SKILL_STATS:
+		var base := float(_base_stats.get(stat, 0.0))
+		var added := float(_stat_added.get(stat, 0.0))
+		var scaled := float(_stat_scaled.get(stat, 1.0))
+		_write_stat(stat, (base + added) * scaled)
+
+
+func _read_stat(stat: StringName) -> float:
+	if stat == STAT_MAX_HEALTH:
+		return health.max_health
+	return float(get(stat))
+
+
+## The one place a stat name becomes a property, and the one place the exception
+## lives: max health belongs to the Health child and has to move through its own
+## setter, which heals by the difference rather than diluting the bar.
+func _write_stat(stat: StringName, value: float) -> void:
+	if stat == STAT_MAX_HEALTH:
+		health.set_max_health(value)
+		return
+	set(stat, value)
 
 
 ## Come back at [param point] with full health, ready to take orders (issue #38).
@@ -219,8 +471,9 @@ func unit_info() -> Dictionary:
 ## he comes back. Restored is load-bearing, and issue #54 is where it got added:
 ## stated over every placement the rule is false, and one zombie behind the boss
 ## gate is the counterexample. That is the invariant to re-check if a checkpoint
-## is ever placed with less clearance, or if issue #9 grows the radii — not this
-## reset.
+## is ever placed with less clearance — not this reset. Issue #9 left
+## [member acquire_radius] out of [constant SKILL_STATS] so that no skill can
+## grow it into the clearance, and tests/ asserts as much.
 func respawn_at(point: Vector3) -> void:
 	_dead = false
 	_clear_orders()
@@ -318,6 +571,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("cancel_command"):
 		_set_attack_move_armed(false)
 		return
+
+	# Spending a point is not a command, so it deliberately does not disarm `A`
+	# or cancel an order — a player banking a level mid-fight keeps whatever the
+	# hero was doing. Driven from the table so a re-binding is one entry, and
+	# above the click handlers because none of these are mouse buttons anyway.
+	for binding in SKILL_HOTKEYS:
+		if event.is_action_pressed(binding["action"]):
+			spend_skill_point(binding["skill"])
+			return
 
 	# Use the position carried by the click itself rather than the live mouse
 	# position: the two can differ by the time the event is handled, and it

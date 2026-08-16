@@ -9,9 +9,10 @@ Everything drawn over the game, plus unit selection (issue #36). Split out of
 five elements and one of them non-trivial.
 
 - `hud.tscn` / `hud.gd` (`class_name HUD`) — the `CanvasLayer`. Holds the hero's
-  health bar (bottom-left), the armed-attack indicator, the controls crib sheet
-  (top-left), the death screen, the checkpoint confirmation, the victory panel
-  (issue #39), and an instance of the info bar.
+  health bar (bottom-left), the XP bar and skill line stacked above it (issue
+  #8), the armed-attack indicator, the controls crib sheet (top-left), the death
+  screen, the checkpoint and level-up banners, the victory panel (issue #39), and
+  an instance of the info bar.
 - `unit_info_bar.tscn` / `unit_info_bar.gd` (`class_name UnitInfoBar`) — the
   bottom-centre panel: name, live HP as `current / max`, and damage / attack
   speed / move speed.
@@ -73,6 +74,44 @@ would have to agree about the armed state *mid-event* — the hero disarms `A`
 while handling the very click that used it — so an armed click would land as
 both an attack and a selection, or as neither, depending on which node
 `_unhandled_input` reached first.
+
+## Progression readout (issue #8)
+
+Three elements, all in the bottom-left stack under the health bar's rules —
+fed by method call, never reached into:
+
+- **`set_experience(current, needed, level)`** draws the XP bar and the `Lv N`
+  beside it. Both numbers are measured toward the *next* level rather than
+  cumulatively over the run, which is what a bar can actually draw; that is the
+  same contract `health_changed` has, and it is the component's decision, not
+  this folder's.
+- **`set_skills(points, skills)`** draws the one-line skill list. It **formats
+  and never interprets**: `skills` is what the unit reports about itself through
+  `Hero.skill_summary()`, effect strings included, for the same reason
+  `unit_info()` exists — what a rank buys is a fact about the hero, and a panel
+  that knew it would need editing for every new skill. The line turns gold while
+  points are unspent, because the count is the only part that changes what a
+  keypress does.
+  **It is a crib sheet for the keys, not a view of the skill tree**, and issue
+  #9 is where those stopped being the same list: the hero now has an authored
+  tree larger than the two keys bound to it, and `skill_summary()` reports the
+  bound ones. Drawing the rest needs a panel, which is not this folder's yet —
+  and when it is, it is a new element rather than a longer line, because six
+  entries do not fit on one.
+- **`flash_level_up(level, points)`** is the transient half, and it exists for
+  the same reason `flash_checkpoint()` does: the bar below already says it, and
+  a bar does not *reach* a player mid-fight — which is exactly when the kill that
+  levelled them happened.
+
+**The two banners share one implementation and not one tween.** `_flash()` and
+`_clear_flash()` keep a tween per label in a dictionary, because arming a
+checkpoint and levelling on the same kill is ordinary rather than a corner case;
+a single shared tween would leave one banner half-faded. They sit on separate
+lines so both are legible at once. `_clear_flashes()` takes both down, and the
+death and victory screens call it for the reason recorded below — with the
+level-up banner the more likely of the two to be up, since the kill that levels
+the hero is often the one that leaves him low, and the boss is worth enough XP
+that the winning blow frequently levels him outright.
 
 ## The victory panel (issue #39)
 
@@ -164,13 +203,13 @@ difference worth stating rather than assuming.
   anything. That protection lives in another folder, which is exactly why the
   two are not allowed to differ here — a reader finding one guarded and one not
   would reasonably conclude the difference meant something.
-- **The checkpoint flash is cancelled when the death screen goes up.** Arming a
+- **Every banner is cancelled when the death screen goes up.** Arming a
   checkpoint and dying seconds later is not a corner case — a zombie chasing the
   hero across a threshold produces it — and a "CHECKPOINT" still fading behind
-  "YOU DIED" reads as congratulating the player on the death. Killing the tween
-  is the load-bearing half: it drives `modulate:a`, so hiding the label without
-  it leaves the fade running and re-hiding it a second later, over whatever came
-  next.
+  "YOU DIED" reads as congratulating the player on the death. "LEVEL 3" does it
+  twice over. Killing the tween is the load-bearing half: it drives `modulate:a`,
+  so hiding the label without it leaves the fade running and re-hiding it a
+  second later, over whatever came next.
 - **`flash_checkpoint()` is the second half of the checkpoint feedback, not the
   whole of it.** The lit pad in the world is the lasting signal and this is the
   transient one, for a player watching the fight rather than the floor they just
@@ -188,7 +227,11 @@ difference worth stating rather than assuming.
   `set_attack_move_armed()`, `show_death()` / `hide_death()`,
   `flash_checkpoint()` and `show_victory()` — the last two from
   `Checkpoint.reached` and the boss's `Zombie.died`, the only HUD calls that do
-  not originate with the hero.
+  not originate with the hero. Issue #8 added `set_experience()`,
+  `set_skills()` and `flash_level_up()`, driven from the hero's `Experience`
+  child (`scenes/components/`) and from `Hero.skill_ranked_up`. Nothing here
+  reads that component: `scenes/main.gd` connects its signals and calls these,
+  which is the same inward-only arrangement everything else in this folder has.
 - Emits `HUD.restart_requested`, consumed by `scenes/main.gd`. It is the only
   signal this folder sends into the game rather than draws from it, and it is
   also what pairs with the pause: that script sets `get_tree().paused`, so it is
@@ -202,4 +245,4 @@ difference worth stating rather than assuming.
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: 6958cf7 -->
+<!-- verified-against: d5fb938 -->

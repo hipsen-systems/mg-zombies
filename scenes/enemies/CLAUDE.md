@@ -125,6 +125,7 @@ change in `scenes/ui/`, because a unit describes itself to the info bar through
 | `leash_radius` | 26 | 22 | under the 24 units from its post to the gate |
 | `alert_delay` | 0.5 | 1.0 | a longer, more readable wind-up |
 | `regen_delay` / `regen_per_second` | 6 / 3 | 8 / 12 | leaving the fight resets it |
+| `xp_reward` | 10 | 100 | ten zombies' worth, for the fight that ends the run |
 | `display_name` | `"Zombie"` | `"Zombie Warlord"` | what the info bar calls it |
 
 **`roam_speed` is the one that looks inert and is not**, which is worth stating
@@ -144,6 +145,12 @@ with before touching the rest:
   coin flip; inverting it means the boss cannot be out-traded at all and has to
   be fought by moving. That is the whole encounter, and it is why `chase_speed`
   is low enough for kiting to work.
+  **Since issue #9 the hero's reach is buyable, and this 3.0 is what caps it.**
+  The tree in `scenes/skills/` stops at +0.6, so a fully invested hero reaches
+  2.8 and the inversion survives a maxed build — otherwise the boss's identity
+  could be spent away from a `.tres` in a folder that has never heard of it.
+  `tests/smoke_skills.gd` asserts the gap rather than trusting either doc, so
+  lowering this number is a change that will be caught here.
 - **`roam_radius = 0` and a leash shorter than the way out make it a guard.**
   Its post is 6 cells (24 units) from the boss-room gate and it turns back at
   5.5, so it can never follow the hero out of the room, and there is no wander
@@ -151,9 +158,12 @@ with before touching the rest:
   deliberately.
 - **Breaking off the fight resets it.** Regeneration is state-gated (see above),
   so kiting inside the room never heals it — only a genuine disengage does, at
-  12 HP/s against the hero's 4. Retreating to heal is therefore a net loss and
-  the fight has to be won in one engagement. The 8 s delay is what keeps a
-  two-second reposition free.
+  12 HP/s against the hero's 4, or against 7 for a build that has bought every
+  rank of Recovery (issue #9). Retreating to heal is therefore a net loss either
+  way and the fight has to be won in one engagement, but the margin is a third
+  of what this bullet used to claim, so a skill tree that ever sells regen
+  harder is what would turn this from a rule into a coin flip. The 8 s delay is
+  what keeps a two-second reposition free.
 
 The stats are a first pass and are meant to be argued with: nothing in the game
 was balanced against an end boss before there was one.
@@ -236,10 +246,18 @@ wider than this will not.
   folder that does not mention this one.
 - Emits `died(zombie)`. **`scenes/main.gd` connects it on the boss and on
   nothing else** (issue #39): one enemy in the level has a death that ends the
-  run, and every other one is still dropped. It remains the hook XP will hang
-  off (issue #8), and the hero still emits his own `killed(victim)` from the
-  swing that lands the blow, which is the *attributed* version of the same
-  moment.
+  run, and every other one is still dropped. **It did not become the XP hook**
+  (issue #8) — `Hero.killed`, fired from the swing that lands the blow, did,
+  because this signal announces a death without saying who caused it and a hero
+  should not be paid for one he had no part in. Nothing here changed for XP
+  beyond the export below.
+- **A unit says what killing it is worth**, through the `xp_reward` export.
+  Per-instance like every other stat here, so the boss is worth ten zombies
+  without a second script, and read *off the victim* by `scenes/main.gd` rather
+  than looked up in a table there — the same principle as `unit_info()`, and it
+  means a new enemy type carries its value with it. It is deliberately **not** a
+  third member of the contract with `scenes/hero/`: that folder never reads it,
+  and a victim without the property is worth nothing rather than an error.
 - **Describes itself to the unit info bar** through `unit_info()` and the
   `display_name` export (per-instance like every stat, so the boss-room guard
   the class docs describe can announce itself without a new scene). The travel
@@ -268,4 +286,4 @@ wider than this will not.
   the boss has no model of its own at all, so whatever it eventually wears is a
   separate question from what the horde does.
 
-<!-- verified-against: 6958cf7 -->
+<!-- verified-against: d5fb938 -->

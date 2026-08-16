@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes/map, scenes/hero, scenes/enemies, scenes/ui]
+depends-on: [scenes/map, scenes/hero, scenes/enemies, scenes/ui, scenes/components]
 ---
 
 # scenes/
@@ -125,10 +125,41 @@ what winning *means* belongs here.
   asymmetry is the point: a death has to preserve everything cleared behind the
   armed checkpoint, which is why issue #38 took the reload *out* of that path;
   a restart has to discard exactly that. Rebuilding is the only version of
-  "discard all of it" that cannot forget a piece of run state — including the
-  ones not written yet, like issue #8's XP. The pause flag is the exception that
-  proves it: it lives on the `SceneTree` rather than the scene, so `_restart_run`
-  clears it by hand or the new run comes up frozen.
+  "discard all of it" that cannot forget a piece of run state — **and issue #8
+  is where that stopped being a prediction.** XP, level and skill ranks are the
+  first state a restart has to throw away, and `_restart_run` gained no line for
+  them: they live on the hero, so the reload takes them. The pause flag remains
+  the one exception, and it is the exception that proves the rule — it lives on
+  the `SceneTree` rather than the scene, so it has to be cleared by hand or the
+  new run comes up frozen.
+
+## Progression (issue #8)
+
+`main.gd` connects `Hero.killed` and turns it into XP. It is the same ownership
+as the two sections above: this script decides what a death costs and what
+winning means, so it decides what a kill is worth beside them.
+
+- **The victim names its own price.** `main.gd` reads `xp_reward` off whatever
+  died rather than keeping a per-enemy table here, so a new enemy type carries
+  its value with it and nothing in this folder is edited to introduce one. A
+  victim without the property is worth nothing rather than an error, which is
+  what keeps this from becoming a third member of the hero↔enemy contract.
+- **The hero does not award himself**, which is why `Hero.killed` finally has a
+  consumer after being emitted and dropped since issue #11. `scenes/hero/` knows
+  what it killed; how much a kill is worth in this level is a scene question.
+- **Where the XP lives is `scenes/hero/`'s answer, not this one.** It is an
+  `Experience` child on the hero (`scenes/components/`), so a restart discards it
+  with the scene and a *death* does not — which is the same asymmetry
+  `_restart_run` already draws for everything else. The comment there used to
+  name issue #8's XP as a piece of run state that did not exist yet; it exists
+  now, and it needed no line in `_restart_run` for exactly the reason that
+  comment gave.
+- The HUD is fed the same way everything else here is: `Experience.xp_changed`
+  and `leveled_up` go straight to `HUD` methods, and the skill line is redrawn by
+  `_refresh_skills()` from two signals — `Experience.points_changed` and
+  `Hero.skill_ranked_up` — because the points total and the ranks are drawn
+  together and move separately. `emit_current()` is called once at startup for
+  the reason the health bar is pushed by hand: nothing re-sends those signals.
 
 ## Navmesh gotchas (learned the hard way)
 
@@ -248,7 +279,12 @@ describes. See `scenes/enemies/CLAUDE.md`.
   consumed by `scenes/hero/`, not by anything in this folder. What each *means*
   is that folder's to document; this is only the inventory:
   `move_command` (right mouse), `select_command` (left mouse),
-  `attack_move` (`A`), `cancel_command` (`Escape`).
+  `attack_move` (`A`), `cancel_command` (`Escape`),
+  `skill_strength` (`1`), `skill_health` (`2`).
+  The last two are bound to *physical* keycodes like `attack_move` is, so they
+  land on the same two keys whatever the keyboard layout — and they are the
+  first actions here that are not commands at all: they spend a skill point and
+  leave the hero's orders alone.
 - `LevelMap` emits `built`; nothing consumes it yet.
 - `main.gd` consumes `Checkpoint.reached` and calls `Checkpoint.set_armed()`
   back on every pad, so exactly one is lit. It calls `Hero.respawn_at()` and, on
@@ -257,13 +293,17 @@ describes. See `scenes/enemies/CLAUDE.md`.
   `HUD.restart_requested` in return.
 - `main.gd` consumes `Hero.died`, `Hero.health.health_changed`,
   `Hero.attack_move_armed_changed` and `Hero.select_clicked`, forwarding each to
-  `scenes/ui/`. Unconsumed so far: `Hero.move_ordered` and `Hero.attack_ordered`
-  — this doc used to earmark them "for the selection UI, issue #36", and that
-  turned out to be wrong: selection is deliberately inert and reads nothing
-  about what the hero is doing. They now have no planned consumer. `Zombie.died`
-  is consumed **on the boss and nowhere else** (issue #39) — every trash zombie's
-  is still dropped, as is the hero's attributed `Hero.killed`, and both remain
-  the XP hooks for issue #8.
+  `scenes/ui/`. Since issue #8 it also consumes `Hero.killed` and
+  `Hero.skill_ranked_up`, plus `xp_changed`, `leveled_up` and `points_changed`
+  from the hero's `Experience` child — see "Progression" above. Unconsumed so
+  far: `Hero.move_ordered` and `Hero.attack_ordered` — this doc used to earmark
+  them "for the selection UI, issue #36", and that turned out to be wrong:
+  selection is deliberately inert and reads nothing about what the hero is
+  doing. They now have no planned consumer. `Zombie.died` is consumed **on the
+  boss and nowhere else** (issue #39) — every trash zombie's is still dropped.
+  It was the other candidate XP hook and stayed unused: `Hero.killed` won it,
+  because a death anything could have caused is the wrong signal to pay a hero
+  for.
 
 ## Tooling note
 
@@ -272,4 +312,4 @@ files (it doesn't load the global class cache), so it reports a false
 "Could not find type" on scripts that reference `Hero`, `LevelMap`, or
 `RTSCamera`. Run the scene instead to check those.
 
-<!-- verified-against: 6958cf7 -->
+<!-- verified-against: d5fb938 -->
