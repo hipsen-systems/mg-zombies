@@ -1,0 +1,56 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/skill_panel.gd" id="1_panel"]
+
+[node name="SkillPanel" type="Control"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_panel")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.03, 0.06, 0.72)
+
+[node name="Frame" type="PanelContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Frame"]
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 20
+
+[node name="Body" type="VBoxContainer" parent="Frame/Margin"]
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Frame/Margin/Body"]
+theme_override_colors/font_color = Color(0.86, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 26
+text = "Skill tree"
+horizontal_alignment = 1
+
+[node name="Points" type="Label" parent="Frame/Margin/Body"]
+theme_override_font_sizes/font_size = 16
+text = "0 skill points to spend"
+horizontal_alignment = 1
+
+[node name="Rows" type="VBoxContainer" parent="Frame/Margin/Body"]
+theme_override_constants/separation = 12
+
+[node name="Hint" type="Label" parent="Frame/Margin/Body"]
+theme_override_colors/font_color = Color(0.55, 0.58, 0.66, 1)
+theme_override_font_sizes/font_size = 12
+text = "K or Escape to close — rows are prerequisite depth, top row is open from the start"
+horizontal_alignment = 1

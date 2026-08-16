@@ -120,13 +120,20 @@ thing that knows what a stat name means.
 - **`describe()` reports what a rank *has* bought, so it is empty at rank 0.**
   A panel that wants to advertise what the *next* rank would buy should ask for
   rank + 1 rather than expecting this to guess which it meant.
-- **The tree is larger than the keyboard**, and four of its six nodes have no
-  way to be bought in play yet. That is the state a design PR with no UI leaves
-  behind, not an oversight — `scenes/hero/` holds the two temporary key
-  bindings, and the skill panel is its own issue.
+- **The tree is larger than the keyboard**, and `scenes/hero/` holds the two
+  temporary key bindings. The other four nodes became buyable in issue #62, from
+  a panel in `scenes/ui/` rather than from more hotkeys.
 - Nodes carry no position and no hotkey. Where one is drawn belongs to the panel
   drawing it; which key buys it belongs to whoever owns the control scheme. A
   tree that knew either could not be shared with a second actor.
+- **`depth(id)` is the one concession to a panel, and it is not a position.** It
+  reports how deep in the prerequisite chain a node sits — 0 for one that is open
+  from the start — which is a fact about this graph and stays true however it is
+  drawn. Whether a panel turns depths into rows, columns or rings is entirely its
+  business, and two panels may disagree; what neither should do is re-derive the
+  structure from `requires` itself. It is cycle-safe rather than trusting
+  `validate()`, because it runs on every redraw and a malformed `.tres` must not
+  take the screen down with it.
 
 ## Dependencies
 

@@ -372,6 +372,52 @@ func skill_summary() -> Array[Dictionary]:
 	return summary
 
 
+## Every node of this hero's tree and its live state, for the skill panel (issue
+## #62).
+##
+## The whole-tree counterpart to [method skill_summary], and the two are
+## deliberately different reports rather than one with a flag. That one is the
+## crib sheet for the keys and carries only what a keypress can reach; this one
+## carries what a panel draws, which is every node whether it is buyable, capped
+## or still locked — a tree you cannot see the locked half of is not a tree, it
+## is a list.
+##
+## Same rule as [method unit_info] about who assembles it: the panel formats and
+## never interprets, so everything it would otherwise have to work out — what a
+## rank costs, why it cannot be bought, what the next one would buy — is answered
+## here. [member SkillNode.description] is passed through untouched; it is the one
+## field that is authored prose rather than derived.
+##
+## [param depth] is the tree's own prerequisite depth, not a screen position. How
+## a panel arranges the tiers is its business — see [method SkillTree.depth].
+func skill_catalogue() -> Array[Dictionary]:
+	var catalogue: Array[Dictionary] = []
+	if skill_tree == null:
+		return catalogue
+	for id in skill_tree.ids():
+		var node := skill_tree.node(id)
+		if node == null:
+			continue
+		var rank := skill_rank(id)
+		catalogue.append({
+			"id": id,
+			"name": node.display_name,
+			"description": node.description,
+			"rank": rank,
+			"max_rank": node.max_rank,
+			"cost": skill_tree.cost_of_next_rank(id),
+			"depth": skill_tree.depth(id),
+			# "" exactly when a click would succeed, so the panel never has to
+			# decide for itself what makes a node buyable.
+			"refusal": skill_refusal(id),
+			"effect": node.describe(rank),
+			# rank + 1, per the note on describe(): it reports what a rank *has*
+			# bought, so asking for the current one advertises nothing at rank 0.
+			"next_effect": node.describe(rank + 1) if rank < node.max_rank else "",
+		})
+	return catalogue
+
+
 ## Everything wrong with this hero's tree: the faults the tree can see itself,
 ## plus the one only an actor can — an effect naming a stat this hero does not
 ## have. Empty when it is sound.

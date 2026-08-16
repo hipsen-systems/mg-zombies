@@ -212,16 +212,31 @@ prerequisites, and nothing about what a stat name means.
 tree.** Which key buys what is a fact about this hero's control scheme;
 `scenes/skills/` must not learn about input actions, or a tree could not be
 shared with a second actor or re-bound without editing game content.
-`SKILL_HOTKEYS` is that mapping, and it reaches two of the tree's six nodes —
-the rest are buyable only through `spend_skill_point()` until there is a panel
-to click, which is the state a design PR with no UI leaves behind.
+`SKILL_HOTKEYS` is that mapping, and it reaches two of the tree's six nodes. The
+other four were buyable only through `spend_skill_point()` until **issue #62 gave
+`scenes/ui/` a panel to click**; the keys stayed as they were, because four more
+hotkeys would have been a worse answer than a panel.
 
-`skill_summary()` accordingly reports **the bound skills, not the whole tree**:
-that HUD line is a reminder of what the keys do, and a node the player cannot
-press has no business on it. It still carries ranks and effect text for the same
-reason `unit_info()` carries stats — what a rank *does* is a fact about this
-actor, and a panel that formatted it would have to be edited for every new
-skill. See the contract in `scenes/ui/CLAUDE.md`.
+**Two reports, not one, and the split is deliberate** — see the contract in
+`scenes/ui/CLAUDE.md`:
+
+- `skill_summary()` reports **the bound skills**. That HUD line is a reminder of
+  what the keys do, and a node the player cannot press has no business on it.
+- `skill_catalogue()` reports **every node**, locked ones included, which is what
+  a panel draws — a tree you cannot see the locked half of is a list. It carries
+  everything a card prints so the panel never interprets: cost, rank, refusal,
+  the authored `description`, and what the *next* rank would buy. That last one
+  asks `describe(rank + 1)`, per the note in `scenes/skills/`: `describe()`
+  reports what a rank *has* bought, so asking for the current one advertises
+  nothing at rank 0.
+
+Both carry ranks and effect text for the same reason `unit_info()` carries
+stats — what a rank *does* is a fact about this actor, and a panel that formatted
+it would have to be edited for every new skill.
+
+**Narrowing `skill_catalogue()` to the bound skills would restore #62's bug with
+the panel still on screen**, which is why `tests/smoke_skills.gd` asserts it
+reports strictly more than the keys reach rather than merely reporting something.
 
 **A level pays points and raises nothing by itself.** That rule is the game's,
 not this folder's — it lives in the root `CLAUDE.md` — and this is the folder

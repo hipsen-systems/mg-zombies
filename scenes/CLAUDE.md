@@ -160,6 +160,33 @@ winning means, so it decides what a kill is worth beside them.
   `Hero.skill_ranked_up` — because the points total and the ranks are drawn
   together and move separately. `emit_current()` is called once at startup for
   the reason the health bar is pushed by hand: nothing re-sends those signals.
+- **Issue #62's skill panel hangs off that same method**, which is the whole
+  reason it needed no new plumbing: the panel draws the same two moving numbers,
+  so it is fed from `_refresh_skills()` alongside the crib line, from the fuller
+  `Hero.skill_catalogue()` report.
+
+## The skill panel's two wires (issue #62)
+
+`scenes/ui/` draws the tree and owns neither what it costs nor what it costs the
+run, so both answers are given here — the same split the victory screen already
+had.
+
+- **`skill_rank_up_requested` buys through `Hero.spend_skill_point()`**, the very
+  method the `1` and `2` keys use, refusals and all. The panel's buttons are
+  already disabled on exactly the nodes that method would refuse, so a click
+  arriving anyway is a race with a level-up and should lose the same way a
+  keypress would. Nothing is redrawn from the handler: a purchase emits
+  `skill_ranked_up`, which is already wired.
+- **`skill_panel_toggled` freezes the run**, and **this script owns the pause
+  flag** for the reason it already owns it at the victory screen: `paused` lives
+  on the `SceneTree` rather than the scene, so it survives anything the scene
+  does and exactly one script may set it. Choosing a build is a considered
+  decision and the zombies do not wait; a tree readable only when nothing is
+  chasing you would be unusable at the exact moment a level is banked.
+- **Both carry the `_run_over` guard**, and it matters in opposite directions —
+  here, unpausing a won run would take the win back. `scenes/ui/` refuses to open
+  the panel once the victory screen is up, so this is the second of two guards on
+  the same case rather than the only one.
 
 ## Navmesh gotchas (learned the hard way)
 
@@ -275,16 +302,23 @@ describes. See `scenes/enemies/CLAUDE.md`.
   `scenes/map/checkpoint.tscn` at runtime. Two exports are wired here as
   `NodePath`s and both point at the hero: the camera's `target` and
   `UnitSelection.hero`.
-- **Input actions** are defined in `project.godot` and every one of them is
-  consumed by `scenes/hero/`, not by anything in this folder. What each *means*
-  is that folder's to document; this is only the inventory:
+- **Input actions** are defined in `project.godot`. What each *means* belongs to
+  the folder that consumes it; this is only the inventory:
   `move_command` (right mouse), `select_command` (left mouse),
   `attack_move` (`A`), `cancel_command` (`Escape`),
-  `skill_strength` (`1`), `skill_health` (`2`).
-  The last two are bound to *physical* keycodes like `attack_move` is, so they
-  land on the same two keys whatever the keyboard layout — and they are the
-  first actions here that are not commands at all: they spend a skill point and
-  leave the hero's orders alone.
+  `skill_strength` (`1`), `skill_health` (`2`), `toggle_skills` (`K`).
+  Every letter-key action is bound to a *physical* keycode, so they land on the
+  same keys whatever the keyboard layout.
+  **All but one are consumed by `scenes/hero/`**, and the exceptions are worth
+  naming because the list has stopped being uniform twice:
+  - `skill_strength` / `skill_health` are consumed there but are **not
+    commands** — they spend a skill point and leave the hero's orders alone.
+  - `toggle_skills` is consumed by **`scenes/ui/`** (issue #62), the only action
+    read outside `scenes/hero/`. Opening a panel issues no order, so routing it
+    through the command scheme would put a screen toggle in the file that owns
+    attack-move. `cancel_command` is now read in *both* folders — the panel
+    closes on `Escape` and consumes the event, so it never also disarms an attack
+    in the game behind it.
 - `LevelMap` emits `built`; nothing consumes it yet.
 - `main.gd` consumes `Checkpoint.reached` and calls `Checkpoint.set_armed()`
   back on every pad, so exactly one is lit. It calls `Hero.respawn_at()` and, on
@@ -295,7 +329,9 @@ describes. See `scenes/enemies/CLAUDE.md`.
   `Hero.attack_move_armed_changed` and `Hero.select_clicked`, forwarding each to
   `scenes/ui/`. Since issue #8 it also consumes `Hero.killed` and
   `Hero.skill_ranked_up`, plus `xp_changed`, `leveled_up` and `points_changed`
-  from the hero's `Experience` child — see "Progression" above. Unconsumed so
+  from the hero's `Experience` child — see "Progression" above. Issue #62 added
+  `HUD.skill_rank_up_requested` and `HUD.skill_panel_toggled`, the second and
+  third signals to run from `scenes/ui/` back into the game. Unconsumed so
   far: `Hero.move_ordered` and `Hero.attack_ordered` — this doc used to earmark
   them "for the selection UI, issue #36", and that turned out to be wrong:
   selection is deliberately inert and reads nothing about what the hero is

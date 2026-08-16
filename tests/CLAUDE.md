@@ -24,7 +24,7 @@ placed one cell from a spawn.
 | `smoke_traversal.gd` | The hero walks start cell to boss room |
 | `smoke_combat.gd` | He kills, acquires his own targets, and heals afterwards |
 | `smoke_progression.gd` | Kills pay XP, levels pay points, and points pay stats |
-| `smoke_skills.gd` | The skill tree is sound, gates what it says, and sells nothing it must not |
+| `smoke_skills.gd` | The skill tree is sound, gates what it says, sells nothing it must not, and every node of it is reachable |
 
 ## Running them
 
@@ -154,6 +154,24 @@ PR, so the constraints run outward as well as in:
   Neither folder can see a `.tres` in a third one. Both are asserted against a
   **fully invested** hero — the test buys the whole tree out — because a cap is
   only worth checking at the cap.
+- **`smoke_skills.gd` also guards that the tree stays reachable** (issue #62).
+  Four of six nodes had no hotkey and so no way to be bought in play; the panel
+  answers that by drawing whatever `Hero.skill_catalogue()` hands it, which makes
+  that one report the whole of what a player can reach. Narrowing it to the bound
+  skills — which is exactly what `skill_summary()` beside it deliberately does —
+  would restore the bug **with the panel still on screen**. So the assertion is
+  that the catalogue lists strictly more than the keys reach, not merely that it
+  lists something. It also checks the tree falls into more than one prerequisite
+  tier, because a `SkillTree.depth()` returning a constant would collapse the
+  panel to one row and satisfy every other check here: the same "how would you
+  tell this from a function that does nothing" gap the cycle check exists for.
+- **It asserts all of that without reading a single `scenes/ui/` node**, which is
+  the deliberate part. Everything the panel prints comes from the hero, so the
+  hero is where it can be checked — and this folder's boundary below stays true.
+  What that leaves unproven is that the panel *renders*: a throwaway script drove
+  the real `HUD` for PR #62 and found two layout faults, and that script was not
+  kept. Issue #55 is the standing question of whether throwaways like it belong
+  here; this is a second data point for it.
 - **It also settled what that rule says**, which is the more interesting half.
   The check is per checkpoint over the placements a respawn *there* restores;
   three folder docs stated it over every placement on the map, and measuring it
@@ -168,8 +186,9 @@ Everything here is downstream and nothing depends on it, which is why the
 frontmatter above is long. It reads `scenes/main.tscn` and the startup order
 `scenes/` owns, the command API and `killed` signal of `scenes/hero/` — plus his
 skill API (`gain_experience`, `spend_skill_point`, `skill_rank`,
-`skill_refusal`, `skill_problems` and the `skill_tree` export) since issues #8
-and #9 — and through that export the read side of `scenes/skills/`
+`skill_refusal`, `skill_problems`, `skill_summary`, `skill_catalogue` and the
+`skill_tree` export) since issues #8, #9 and #62 — and through that export the
+read side of `scenes/skills/`
 (`SkillTree.ids`, `node`, `cost_of_next_rank`, `total_cost`, `validate`, and a
 node's `max_rank` / `requires` / `effects`; `requires` is also *written*, on a
 deep duplicate, to build the broken tree above). Also the

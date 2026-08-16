@@ -79,6 +79,36 @@ func cost_of_next_rank(id: StringName) -> int:
 	return target.cost_per_rank if target != null else 0
 
 
+## How deep in the prerequisite chain [param id] sits: 0 for a node that is open
+## from the start, otherwise one past the deepest thing it requires.
+##
+## [b]This is graph structure, not layout.[/b] A node still carries no position —
+## whether a panel turns these into rows, columns or rings is entirely its
+## business, and two panels may disagree. What is not negotiable is that
+## "swiftness is open from the start and reach is not" is a fact about the tree,
+## and computing it from [member SkillNode.requires] is the only way to keep it
+## true when a node is added to the .tres.
+##
+## Cycle-safe by construction: a node already on the path contributes nothing
+## rather than recursing. [method validate] is what actually reports a ring; this
+## only declines to hang on one, because it runs at every redraw and a malformed
+## .tres must not take the panel down with it.
+func depth(id: StringName) -> int:
+	return _depth(id, {})
+
+
+func _depth(id: StringName, walking: Dictionary) -> int:
+	var target := node(id)
+	if target == null or walking.has(id):
+		return 0
+	walking[id] = true
+	var deepest := -1
+	for required_id in target.requires:
+		deepest = maxi(deepest, _depth(required_id, walking))
+	walking.erase(id)
+	return deepest + 1
+
+
 ## Points it would take to buy every rank of every node. What a full build
 ## costs, and the number a test can hold the tree to.
 func total_cost() -> int:

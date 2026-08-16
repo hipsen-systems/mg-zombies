@@ -67,7 +67,52 @@ func _check() -> void:
 	check("and the hero's own tree was not the one edited",
 		hero.skill_problems().is_empty())
 
-	# --- 2. a gated node is refused until its prerequisite is met --------------
+	# --- 2. the panel is offered every node, not just the ones a key reaches ---
+	# Issue #62's entire content: four of the six nodes had no hotkey, so no way
+	# to be bought in play at all. The panel answers that by drawing the tree, and
+	# it draws exactly what `skill_catalogue()` hands it — nothing more is
+	# reachable than is listed here. A catalogue narrowed to the *bound* skills,
+	# which is what `skill_summary()` deliberately reports, would restore the bug
+	# with the panel still on screen and every other check in this file green.
+	var catalogue: Array[Dictionary] = hero.skill_catalogue()
+	var listed := {}
+	for entry in catalogue:
+		listed[entry["id"]] = true
+	var missing := PackedStringArray()
+	for id in tree.ids():
+		if not listed.has(id):
+			missing.append(String(id))
+	check("the panel is offered every node in the tree", missing.is_empty(),
+		"missing %s" % ", ".join(missing))
+	var bound: int = hero.skill_summary().size()
+	check("including the ones no hotkey reaches", catalogue.size() > bound,
+		"%d in the tree against %d the keys reach" % [catalogue.size(), bound])
+
+	# The panel formats and never interprets, so a card is only as right as this
+	# report. Checked against the hero's own answers rather than trusted.
+	var disagreements := PackedStringArray()
+	for entry in catalogue:
+		var id: StringName = entry["id"]
+		if String(entry["refusal"]) != hero.skill_refusal(id):
+			disagreements.append("%s refusal" % id)
+		if int(entry["rank"]) != hero.skill_rank(id):
+			disagreements.append("%s rank" % id)
+		if int(entry["cost"]) != tree.cost_of_next_rank(id):
+			disagreements.append("%s cost" % id)
+	check("and what it says of each agrees with the hero", disagreements.is_empty(),
+		"; ".join(disagreements))
+
+	# The panel's rows are prerequisite depth, so a depth() that returned a
+	# constant would draw one row and still satisfy everything above — the same
+	# "how would you tell it from a function that does nothing" gap the cycle
+	# check above exists to close.
+	var tiers := {}
+	for entry in catalogue:
+		tiers[int(entry["depth"])] = true
+	check("and they fall into more than one prerequisite tier", tiers.size() > 1,
+		"tiers %s" % str(tiers.keys()))
+
+	# --- 3. a gated node is refused until its prerequisite is met --------------
 	# Funded first and deliberately overfunded, so what refuses the purchase is
 	# the prerequisite and not an empty pool. Those are the two refusals, and a
 	# test that cannot tell them apart proves neither.
@@ -85,7 +130,7 @@ func _check() -> void:
 			return
 	check("meeting the prerequisite opens it", hero.skill_refusal(&"reach").is_empty())
 
-	# --- 3. a node costs what it says it costs --------------------------------
+	# --- 4. a node costs what it says it costs --------------------------------
 	var cost: int = tree.cost_of_next_rank(&"reach")
 	var points_before: int = hero.experience.skill_points
 	check("the gated skill costs more than one point", cost > 1, "%d points" % cost)
@@ -94,7 +139,7 @@ func _check() -> void:
 		hero.experience.skill_points == points_before - cost,
 		"%d -> %d points" % [points_before, hero.experience.skill_points])
 
-	# --- 4. buying the whole tree ---------------------------------------------
+	# --- 5. buying the whole tree ---------------------------------------------
 	# Every node to its cap, in whatever order the sweep reaches them. That the
 	# order does not matter is the fold's property, not an accident: adds are
 	# summed against the authored base and scales multiply what is left.
@@ -116,7 +161,7 @@ func _check() -> void:
 		not hero.spend_skill_point(&"strength"),
 		hero.skill_refusal(&"strength"))
 
-	# --- 5. what a full build must still not be able to do --------------------
+	# --- 6. what a full build must still not be able to do --------------------
 	# See the header. Both numbers belong to other folders; this is the only
 	# place either is checked against what the tree sells.
 	var boss = _boss()

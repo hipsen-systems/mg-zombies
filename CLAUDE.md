@@ -156,6 +156,17 @@ every PR (`docs-check` workflow). It runs four checks:
 | verification | A folder whose files changed since its `verified-against` stamp without the doc being touched — including history that predates these hooks, merge-conflict resolutions, and commits from anyone running without hooks — plus a stamp that cannot be true at all: one naming a commit where the folder does not exist, or one that is not an ancestor of `HEAD` |
 | dependency graph | A `depends-on` entry naming a folder with no doc, or naming itself — and the one this check exists for: a doc left unread after code it *depends on* changed |
 
+**The same-change rule's `project.godot` half is the one that misfires**, and it
+is worth recording where rather than only in issue #40. That file holds two
+registries this doc explicitly does *not* own, so adding an input action forces
+an edit here to describe something `scenes/CLAUDE.md` is the owner of. PR #62 is
+the second recorded instance: it added `toggle_skills` and had nothing true to
+say here beyond this paragraph. Left as-is deliberately — the check cannot tell
+which *section* of `project.godot` moved, and a rule that fires too often is a
+smaller fault than one that lets a renderer or physics change through unread.
+Note what it is not: the rest of the same-change rule, which fires on a folder's
+own code, has never misfired.
+
 ### The `depends-on` graph
 
 Every check above looks at a folder in isolation, so all of them miss the same
