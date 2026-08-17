@@ -154,7 +154,11 @@ PR, so the constraints run outward as well as in:
   behaviour would survive any amount of playing until the moment a player was
   relying on it. Its second half is the `_finish_engagement()` guard, and that
   one was **run against the guard removed** to prove it discriminates: without
-  it the order silently ends on the first kill.
+  it the order silently ends on the first kill. It closes with **both** ways out
+  of the order — a cancel and an ordinary move — because the claim being asserted
+  is that *every* command releases a hold, and the cancel alone only proves the
+  cancel. They share one choke point today; the second check is what would notice
+  that stopping being true. Cross-review of PR #70 asked for it.
   It also carries this folder's sharpest lesson about writing tests here. The
   first version picked the nearest zombie by distance and asserted an idle hero
   would walk to it. He stood still — **correctly**, because that zombie was

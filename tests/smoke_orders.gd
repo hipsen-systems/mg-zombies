@@ -117,8 +117,17 @@ func _check() -> void:
 		"order is %d" % hero.current_order())
 
 	# --- 5. and any other order releases it -----------------------------------
+	# Both a cancel and an ordinary order, because the doc's claim is about *every*
+	# command routing through `_clear_orders()` and `S` alone only proves the
+	# cancel. They share one choke point today, so the second check is cheap
+	# insurance against that stopping being true rather than a separate risk.
 	hero.command_stop()
 	check("S stands him down again", not hero.is_holding_position())
+	hero.command_hold_position()
+	if not check("and he can be told to hold once more", hero.is_holding_position()):
+		return
+	hero.command_move_to(level.start_position())
+	check("a move order releases the hold too", not hero.is_holding_position())
 	done()
 
 

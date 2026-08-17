@@ -277,6 +277,15 @@ wider than this will not.
   nothing to it — `scenes/ui/` never issues an order. That folder also watches
   the `Health` child's `died` so the bar drops a corpse, which is why it is in
   the frontmatter above.
+- **What this folder claims about `scenes/hero/` is the group-and-methods
+  contract and the leash, and neither moves when he gains an order.** Stated
+  because issue #67 gave him two — hold position and stop — and the `depends-on`
+  graph duly flagged this doc, correctly and with nothing to find. A zombie
+  reacts to where the hero *is*, never to what he has been told to do, which is
+  what makes that whole class of change invisible from here. The one thing a new
+  order can reach is encounter *design* rather than this folder's code: a hero
+  who can be made to stand still is a hero who can hold a chokepoint, and
+  `scenes/map/` is where that is written down.
 - Spawned by `scenes/main.gd` from `LevelMap.zombie_spawns()` — the `Z` cells of
   `scenes/map/level_map.gd`, each carrying the checkpoint segment it belongs to.
   The spawner sets `position` *before* `add_child`, because `_ready()` captures
