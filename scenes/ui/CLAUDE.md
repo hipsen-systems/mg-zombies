@@ -222,26 +222,40 @@ orders. `scenes/main.gd` does not pick the colour either: the hero emits
 `move_ordered` and `attack_move_ordered` separately, so the *only* thing that
 decides which ping is drawn is the order the hero actually issued.
 
-**Green and red collide with `scenes/map/`'s zone markers, and that is accepted
-rather than missed.** The start cell is green (0.3, 0.9, 0.4) and the boss cell
+**Green and red collide with `scenes/map/`'s zone markers, which is why the ring
+carries a dark rim.** The start cell is green (0.3, 0.9, 0.4) and the boss cell
 red (0.95, 0.25, 0.2) — the exact constraint that pushed the selection ring to
-cyan and orange — so a move ping on the start cell and an attack-move ping on the
-boss cell are the two weakest reads in the game. Taken anyway, because the ring
-and the ping are not alike: the ring is **static** and marks a unit indefinitely,
-so a hue that sinks into the floor leaves the player unable to tell what is
-selected, while a ping is transient and animated — it lands at 1.7× and shrinks
-over ~0.6 s, and motion against a flat plate carries a hue difference that would
-defeat a still shape. Against that, recolouring would cost the one convention a
-new player already brings with them. If it ever does read badly, the fix is
-contrast *within* the marker — a dark rim — not a different colour.
+cyan and orange.
 
-**The material is duplicated in `_ready()`**, for the reason the ring and
+**This paragraph first said the collision was acceptable, and a screenshot
+disproved it.** The argument was that a ping is transient and animated where the
+selection ring is static, so motion would carry a hue difference that defeats a
+still shape. Then a move ping was captured landing on the green plate and there
+was **nothing there at all**. The reasoning about motion was not wrong; it was
+answering the wrong question, because a marker invisible in the frame the player
+looks at has already failed whatever it does over the next half second.
+
+So the contrast lives in the marker rather than in the palette: `Rim` is a
+slightly larger near-black torus a hair below the coloured ring. It keeps the one
+convention a new player arrives with — green means go, red means fight — and
+costs a second mesh. It also reads better on ordinary floor than the bare ring
+did, which was not the point but is worth knowing before anyone removes it.
+
+**The general lesson is the one #53 recorded and this repeated exactly.** A
+well-argued design decision is still a hypothesis, and the only thing that
+settles a *visual* one is looking at it. This claim survived being written down,
+re-read while writing the neighbouring paragraph, and reviewed by its author —
+and died to the first screenshot.
+
+**Both materials are duplicated in `_ready()`**, for the reason the ring and
 `scenes/enemies/` both record: sub-resources are shared between instances of a
-scene and this one is recoloured and faded at runtime.
+scene and these are recoloured and faded at runtime.
 
 **Fading needs both albedo alpha and emission energy.** Emission does not read
 alpha, so dropping opacity alone leaves a bright ring glowing on a transparent
-one — which looks like the ping never ends.
+one — which looks like the ping never ends. The rim fades on the same clock and
+scaled by its authored opacity, so the `.tscn` stays the one place that decides
+how dark it is, and the outline never outlives the thing it outlines.
 
 ## The hold indicator (issue #67)
 
@@ -397,4 +411,4 @@ difference worth stating rather than assuming.
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: 5b166d3 -->
+<!-- verified-against: b386caa -->

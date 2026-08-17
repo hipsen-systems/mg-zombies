@@ -32,27 +32,33 @@ const GROUND_CLEARANCE := 0.06
 const START_SCALE := 1.7
 const END_SCALE := 1.0
 
-## [b]These collide with `scenes/map/`'s zone markers, and the collision is
-## accepted rather than missed.[/b] That folder paints the start cell green
-## (0.3, 0.9, 0.4) and the boss cell red (0.95, 0.25, 0.2), which is the exact
-## constraint that pushed the selection ring to cyan and orange — so a move ping
-## on the start cell and an attack-move ping on the boss cell are the two weakest
-## reads in the game.
+## [b]These collide with `scenes/map/`'s zone markers, which is why the ring has
+## a dark rim behind it.[/b] That folder paints the start cell green
+## (0.3, 0.9, 0.4) and the boss cell red (0.95, 0.25, 0.2) — the exact constraint
+## that pushed the selection ring to cyan and orange.
 ##
-## Taken anyway, because the two cases are not alike. The ring is *static* and
-## marks a unit indefinitely, so a hue that vanishes into the floor leaves a
-## player with no way to tell what is selected. A ping is transient and animated:
-## it arrives at 1.7× and shrinks over ~0.6 s, and motion against a flat plate is
-## legible at a hue difference that would defeat a still shape. Against that,
-## re-colouring these would cost the one convention a new player brings with
-## them. If it ever does read badly, the fix is contrast within the marker — a
-## dark rim — rather than a different colour.
+## The first version of this file argued the collision was acceptable: a ping is
+## transient and animated where the selection ring is static, so motion should
+## carry a hue difference that would defeat a still shape. **A screenshot of a
+## move ping landing on the green plate showed nothing there at all.** The
+## argument was not wrong about motion, but it was answering the wrong question —
+## a marker that is invisible for the frame the player looks at it has already
+## failed, whatever it does over the next half second.
+##
+## So the contrast is in the marker rather than in the palette, which keeps the
+## one convention a new player arrives with (green means go, red means fight) and
+## costs a second mesh. `Rim` is a slightly larger near-black torus a hair below
+## the coloured one; it reads as an outline on pale floor and as the whole shape
+## on a plate the same hue as the ring.
 const MOVE_COLOUR := Color(0.36, 1.0, 0.42)
 const ATTACK_COLOUR := Color(1.0, 0.3, 0.24)
 
 @onready var _ring: MeshInstance3D = $Ring
+@onready var _rim: MeshInstance3D = $Rim
 
 var _material: StandardMaterial3D = null
+var _rim_material: StandardMaterial3D = null
+var _rim_alpha := 1.0
 var _tween: Tween = null
 
 
@@ -63,6 +69,9 @@ func _ready() -> void:
 	# stops being true the failure mode is silent.
 	_material = _ring.get_surface_override_material(0).duplicate()
 	_ring.set_surface_override_material(0, _material)
+	_rim_material = _rim.get_surface_override_material(0).duplicate()
+	_rim.set_surface_override_material(0, _rim_material)
+	_rim_alpha = _rim_material.albedo_color.a
 	hide()
 
 
@@ -109,3 +118,7 @@ func _set_alpha(alpha: float) -> void:
 	# Emission does not read alpha, so a ring left glowing at zero opacity is a
 	# bright ring on a transparent one. Dimming both is what actually fades it.
 	_material.emission_energy_multiplier = alpha
+	# The rim fades with the ring rather than on its own clock, or the outline
+	# outlives the thing it is outlining — scaled by its authored opacity so the
+	# .tscn stays the one place that decides how dark it is.
+	_rim_material.albedo_color.a = alpha * _rim_alpha
