@@ -19,6 +19,9 @@ five elements and one of them non-trivial.
 - `unit_selection.tscn` / `unit_selection.gd` (`class_name UnitSelection`) — a
   `Node3D` in `main.tscn` holding the selection ring. Owns *what* is selected;
   the HUD only draws it.
+- `order_marker.tscn` / `order_marker.gd` (`class_name OrderMarker`) — a `Node3D`
+  in `main.tscn`, on the same precedent: the ping that shows where an order
+  landed (issue #67). Green for a move, red for an attack-move. See below.
 - `skill_panel.tscn` / `skill_panel.gd` (`class_name SkillPanel`) — the skill
   tree as something clickable (issue #62), instanced inside `hud.tscn`. See
   below.
@@ -202,6 +205,53 @@ open this panel, so a player who acts on it immediately reads it straight across
 the panel's own title. Found by screenshotting the panel, not by reasoning about
 it.
 
+## The order marker (issue #67)
+
+A right-click used to produce movement and nothing else. In a top-down view with
+the hero often off-centre, that makes a click that was *received* look identical
+to one that was dropped — `scenes/hero/` has a whole rule about never dropping a
+click, written because dropped clicks read as an unresponsive hero, and this is
+the other half of it: an order the player cannot see is the same experience as no
+order at all.
+
+**It is inert, exactly as selection is**, and for the same reason. It reads no
+state, nothing reads it, and it holds no opinion about what the hero is doing —
+it is told where an order went and draws a ring there. That is what lets it hang
+straight off the hero's order signals without becoming a second record of his
+orders. `scenes/main.gd` does not pick the colour either: the hero emits
+`move_ordered` and `attack_move_ordered` separately, so the *only* thing that
+decides which ping is drawn is the order the hero actually issued.
+
+**Green and red collide with `scenes/map/`'s zone markers, and that is accepted
+rather than missed.** The start cell is green (0.3, 0.9, 0.4) and the boss cell
+red (0.95, 0.25, 0.2) — the exact constraint that pushed the selection ring to
+cyan and orange — so a move ping on the start cell and an attack-move ping on the
+boss cell are the two weakest reads in the game. Taken anyway, because the ring
+and the ping are not alike: the ring is **static** and marks a unit indefinitely,
+so a hue that sinks into the floor leaves the player unable to tell what is
+selected, while a ping is transient and animated — it lands at 1.7× and shrinks
+over ~0.6 s, and motion against a flat plate carries a hue difference that would
+defeat a still shape. Against that, recolouring would cost the one convention a
+new player already brings with them. If it ever does read badly, the fix is
+contrast *within* the marker — a dark rim — not a different colour.
+
+**The material is duplicated in `_ready()`**, for the reason the ring and
+`scenes/enemies/` both record: sub-resources are shared between instances of a
+scene and this one is recoloured and faded at runtime.
+
+**Fading needs both albedo alpha and emission energy.** Emission does not read
+alpha, so dropping opacity alone leaves a bright ring glowing on a transparent
+one — which looks like the ping never ends.
+
+## The hold indicator (issue #67)
+
+`set_holding_position(holding)` is the second element of the
+`set_attack_move_armed` kind, and it needs the treatment more rather than less.
+An armed attack command ends on the next click; a hold lasts until the player
+remembers it, and a held hero is indistinguishable in the world from one who has
+simply finished walking — right up until the player wonders why he is not
+chasing anything.
+
 ## The victory panel (issue #39)
 
 The boss dies, `scenes/main.gd` calls `show_victory()`, and a "VICTORY" heading,
@@ -309,8 +359,17 @@ difference worth stating rather than assuming.
 
 ## Dependencies / signals
 
-- Instanced by `scenes/main.tscn`; `UnitSelection.hero` is wired from there as a
-  `NodePath`, the way the camera's `target` is.
+- Instanced by `scenes/main.tscn` — the `HUD`, `UnitSelection` and, since issue
+  #67, `OrderMarker`. `UnitSelection.hero` is wired from there as a `NodePath`,
+  the way the camera's `target` is; the marker needs no wiring of its own,
+  because it is fed by method call like everything else here.
+- Consumes `Hero.move_ordered` and `Hero.attack_move_ordered` through
+  `scenes/main.gd` as `OrderMarker.show_move()` / `show_attack_move()`, and
+  `Hero.holding_position_changed` as `HUD.set_holding_position()` (issue #67).
+  Those two order signals had been emitted and unconsumed since issue #11; this
+  is their first consumer, and `Hero.attack_ordered` is still waiting for one —
+  a marker that tracks a moving unit is a different feature from a ping on the
+  ground, and #67 deliberately did not build it.
 - Consumes `Hero.select_clicked`, and `Health.health_changed` / `Health.died` on
   whatever is selected. `scenes/main.gd` also calls `set_hero_health()`,
   `set_attack_move_armed()`, `show_death()` / `hide_death()`,

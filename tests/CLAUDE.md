@@ -23,6 +23,7 @@ placed one cell from a spawn.
 | `smoke_startup.gd` | The level assembles as authored and the navmesh is real |
 | `smoke_traversal.gd` | The hero walks start cell to boss room |
 | `smoke_combat.gd` | He kills, acquires his own targets, and heals afterwards |
+| `smoke_orders.gd` | `S` stops him, and `H` roots him — including across a kill |
 | `smoke_progression.gd` | Kills pay XP, levels pay points, and points pay stats |
 | `smoke_skills.gd` | The skill tree is sound, gates what it says, sells nothing it must not, and every node of it is reachable |
 
@@ -145,6 +146,24 @@ PR, so the constraints run outward as well as in:
   and the failure mode is friendly rather than obviously wrong ("levelling feels
   stingy, give it a little something"). It is the first assertion here that is
   primarily **negative**: what must *not* have changed.
+- **`smoke_orders.gd` covers an order that is invisible when it breaks** (issue
+  #67). `HOLD` looks exactly like `IDLE` from every angle except the one that
+  matters: both stand, both fight back, and the difference only shows when
+  something comes within `acquire_radius` but outside reach — an idle hero walks
+  to it and a held one does not. A `HOLD` branch that fell through to IDLE's
+  behaviour would survive any amount of playing until the moment a player was
+  relying on it. Its second half is the `_finish_engagement()` guard, and that
+  one was **run against the guard removed** to prove it discriminates: without
+  it the order silently ends on the first kill.
+  It also carries this folder's sharpest lesson about writing tests here. The
+  first version picked the nearest zombie by distance and asserted an idle hero
+  would walk to it. He stood still — **correctly**, because that zombie was
+  behind rock, and automatic acquisition requires line of sight while this folder
+  has no way to ask whether there is any. The fix was to stop asserting what the
+  hero *should* target and wait for `current_target()` to fill, which proves
+  range and sight together in a question this folder is allowed to ask. **A test
+  that reaches for world state the hero reasons about differently is measuring
+  its own assumption.**
 - **`smoke_skills.gd` is where two cross-folder invariants stop being prose**
   (issue #9). The skill tree is authored in `scenes/skills/` and can silently
   undo a decision made somewhere else: `reach` could out-reach the end boss,
@@ -195,7 +214,9 @@ frontmatter above is long. It reads `scenes/main.tscn` and the startup order
 `scenes/` owns, the command API and `killed` signal of `scenes/hero/` — plus his
 skill API (`gain_experience`, `spend_skill_point`, `skill_rank`,
 `skill_refusal`, `skill_problems`, `skill_summary`, `skill_catalogue` and the
-`skill_tree` export) since issues #8, #9 and #62 — and through that export the
+`skill_tree` export) since issues #8, #9 and #62, plus `command_hold_position()`,
+`is_holding_position()`, `current_order()` and `current_target()` since #67 —
+and through that export the
 read side of `scenes/skills/`
 (`SkillTree.ids`, `node`, `cost_of_next_rank`, `total_cost`, `validate`, and a
 node's `max_rank` / `requires` / `effects`; `requires` is also *written*, on a

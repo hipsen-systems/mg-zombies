@@ -8,8 +8,9 @@ Top-level game scenes and their scripts.
 
 - `main.tscn` — the game entry scene: a `NavigationRegion3D` wrapping the
   level map (`scenes/map/`), the instanced hero, `Enemies` and `Checkpoints`
-  holders, lighting, the RTS camera, and two instances from `scenes/ui/` — the
-  `HUD` and the `UnitSelection` node that holds the selection ring. The 40×40
+  holders, lighting, the RTS camera, and three instances from `scenes/ui/` — the
+  `HUD`, the `UnitSelection` node that holds the selection ring, and the
+  `OrderMarker` that pings where an order landed (issue #67). The 40×40
   test arena that lived here for issue #5 is gone; issue #6 replaced it with the
   real map, and issue #37 replaced that maze with an open single-path level.
 - `main.gd` — attached to the root. Owns the startup order, which is
@@ -313,6 +314,7 @@ describes. See `scenes/enemies/CLAUDE.md`.
   the folder that consumes it; this is only the inventory:
   `move_command` (right mouse), `select_command` (left mouse),
   `attack_move` (`A`), `cancel_command` (`Escape`),
+  `hold_position` (`H`), `stop_command` (`S`),
   `skill_strength` (`1`), `skill_health` (`2`), `toggle_skills` (`K`).
   Every letter-key action is bound to a *physical* keycode, so they land on the
   same keys whatever the keyboard layout.
@@ -334,7 +336,14 @@ describes. See `scenes/enemies/CLAUDE.md`.
   `HUD.restart_requested` in return.
 - `main.gd` consumes `Hero.died`, `Hero.health.health_changed`,
   `Hero.attack_move_armed_changed` and `Hero.select_clicked`, forwarding each to
-  `scenes/ui/`. Since issue #8 it also consumes `Hero.killed` and
+  `scenes/ui/`. Issue #67 added three more of the same shape —
+  `Hero.move_ordered` and `Hero.attack_move_ordered` to the `OrderMarker`, and
+  `Hero.holding_position_changed` to the `HUD`. The first two had been emitted
+  and unconsumed since issue #11, and **which of them fires is the whole of what
+  decides the marker's colour**: this script does not look at `current_order()`
+  to choose, because the hero already reports which order a click became and a
+  second reading of it here would be a second record that can disagree.
+  Since issue #8 it also consumes `Hero.killed` and
   `Hero.skill_ranked_up`, plus `xp_changed`, `leveled_up` and `points_changed`
   from the hero's `Experience` child — see "Progression" above. Issue #62 added
   `HUD.skill_rank_up_requested` and `HUD.skill_panel_toggled`, the second and

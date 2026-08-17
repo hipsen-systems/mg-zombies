@@ -43,6 +43,7 @@ const FLASH_FADE := 0.7
 @onready var _xp_value: Label = $XPBar/Value
 @onready var _skills_label: Label = $SkillsLabel
 @onready var _attack_move_label: Label = $AttackMoveLabel
+@onready var _hold_label: Label = $HoldLabel
 @onready var _death_label: Label = $DeathLabel
 @onready var _death_sub_label: Label = $DeathSubLabel
 @onready var _checkpoint_label: Label = $CheckpointLabel
@@ -153,6 +154,15 @@ func show_unit(unit: Node3D) -> void:
 ## mode the player cannot see is a mode they will forget they are in.
 func set_attack_move_armed(armed: bool) -> void:
 	_attack_move_label.visible = armed
+
+
+## Standing ground is the same kind of mode and gets the same treatment (issue
+## #67) — and it needs it more, not less. An armed attack command at least ends
+## on the next click; a hold lasts until the player remembers it, and a held hero
+## is indistinguishable in the world from one who has finished walking, right up
+## until the player wonders why he is not chasing anything.
+func set_holding_position(holding: bool) -> void:
+	_hold_label.visible = holding
 
 
 func show_death() -> void:

@@ -52,6 +52,7 @@ const SEGMENT_META := &"checkpoint_segment"
 @onready var _checkpoints_root: Node3D = $Checkpoints
 @onready var _hud: HUD = $HUD
 @onready var _selection: UnitSelection = $UnitSelection
+@onready var _order_marker: OrderMarker = $OrderMarker
 
 ## Where the hero comes back, one entry per checkpoint. Entry 0 is the start
 ## cell, so this is never empty and a death before the first pad still respawns.
@@ -92,6 +93,16 @@ func _ready() -> void:
 	# belongs to, and hands on the clicks his attack command did not take.
 	_hero.select_clicked.connect(_selection.select_at)
 	_selection.selection_changed.connect(_hud.show_unit)
+	# Order feedback (issue #67). Two signals rather than one because the marker
+	# draws them in different colours, and the hero is the only thing that knows
+	# which order a click became — this script deliberately does not, and reading
+	# `current_order()` here to pick a colour would make it a second record of
+	# something he already reports. `move_ordered` and `attack_ordered` had sat
+	# emitted-and-unconsumed since issue #11 waiting for a use; this is half of
+	# one, and `attack_ordered` is still waiting.
+	_hero.move_ordered.connect(_order_marker.show_move)
+	_hero.attack_move_ordered.connect(_order_marker.show_attack_move)
+	_hero.holding_position_changed.connect(_hud.set_holding_position)
 	# The wires that run the other way, from the HUD back into the game: the
 	# victory screen asks, this script decides what starting a run means — and
 	# since issue #62 the skill panel asks on the same terms.
