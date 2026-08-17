@@ -135,6 +135,23 @@ decisions rather than gaps:
 bar. Display-only, and the hero picks *which* of his numbers is the interesting
 one — see the contract in `scenes/ui/CLAUDE.md`.
 
+**And since issue #65 he says when those numbers move**, with `stats_changed`.
+A report alone is a snapshot: `scenes/ui/` reads it once when a unit is selected
+and cannot notice a value changing afterwards, so buying a rank of Strength left
+the old damage on screen until the player selected another unit and came back.
+The signal is `Health.health_changed` for the rest of the row, and it is
+**emitted from `_apply_skills()` rather than from `spend_skill_point()`** — the
+fold is the one place a sellable stat is written, so an item, a buff or a respec
+moving one announces itself through the same signal with nothing new wired up.
+It carries no payload for the same reason `unit_info()` exists: a listener
+re-asks, rather than being told which numbers it should care about.
+
+Two things it is deliberately not. It is **not** `skill_ranked_up`, which says a
+*rank* was bought and is what pays the HUD's skill line — a stat can move without
+a purchase, and the reverse is what a behaviour-grant skill would be. And it is
+**not** emitted at `_ready()`, where the fold does not run: the authored values
+are what a fresh selection already reads.
+
 Measured 1v1 against one zombie: ~18 HP lost per kill, ~6 s of fighting.
 
 **The end boss inverts the reach advantage deliberately** (issue #39): its 3.0
@@ -394,6 +411,8 @@ to touch. `tests/smoke_progression.gd` asserts it directly.
   which `scenes/main.gd` answers with `respawn_at()` at the armed checkpoint.
   Emits `skill_ranked_up(skill, rank)` **after** the stat it bought has been
   applied, so a listener reads the new numbers rather than the old ones.
+  Emits `stats_changed` from the fold itself (issue #65), consumed by
+  `scenes/ui/` — see below.
   Consumes `Health.died` from its own child, and calls `Health.revive()` on the
   way back.
 - **The skill tree is a resource, not a node** (`scenes/skills/`), preloaded as

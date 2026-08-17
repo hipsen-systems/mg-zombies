@@ -55,6 +55,7 @@ provides:
 | `unit_info() -> Dictionary` | `name`, `damage`, `attack_cooldown`, `move_speed` |
 | a `Health` child (`scenes/components/`) | the HP bar, and the death fallback |
 | `is_dead()` | refusing to select a corpse |
+| `stats_changed` *(optional)* | redrawing the stats row when a number moves |
 
 No class is named here, so a boss or a second enemy type needs no change in this
 folder — but the three above are a real runtime contract, which is why
@@ -73,6 +74,24 @@ properties**, because the property that matters differs per actor: the hero's
 travel speed is his `move_speed`, a zombie's is its *chase* speed, and only they
 know which of theirs is worth showing. Missing keys render as a dash rather than
 failing, so a partial reporter is safe.
+
+**The fourth member is optional, and the reason it exists is worth keeping**
+(issue #65). `unit_info()` is a *snapshot*, and this folder had no way to notice
+one going stale: the row was drawn once when a unit was selected, so buying a
+rank of Strength left the old damage on screen until the player selected
+something else and came back. The HP bar never had the bug, because it was
+subscribed to `Health.health_changed` all along — `stats_changed` is that same
+arrangement for the rest of the row, subscribed to while a unit is shown and
+dropped when the selection moves on.
+
+Optional rather than required, on the folder's existing habit of degrading:
+nothing about a zombie's numbers moves today, and a unit that never emits is one
+whose row never needs redrawing — which is exactly the old behaviour, so a unit
+without it is no worse off than every unit was before. **What the option costs is
+that a future actor whose stats move and which forgets to emit is silently
+wrong**, and it looks like a balance bug rather than a UI one. That is the same
+trade the missing-keys dash makes, and it is why the constant naming the signal
+is written once in `unit_info_bar.gd` rather than three times.
 
 ## The hero owns the left mouse button, not this folder
 
