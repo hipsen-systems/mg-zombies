@@ -381,4 +381,4 @@ wider than this will not.
   the boss has no model of its own at all, so whatever it eventually wears is a
   separate question from what the horde does.
 
-<!-- verified-against: 4a9eb45 -->
+<!-- verified-against: e9f8a21 -->
