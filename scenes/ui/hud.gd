@@ -19,6 +19,18 @@ extends CanvasLayer
 ## "start another one" does is that script's decision and not a widget's.
 signal restart_requested
 
+## The player clicked a node in the skill panel (issue #62). Passed straight
+## through from [signal SkillPanel.rank_up_requested] for the same reason
+## [signal restart_requested] exists: this folder draws the tree and does not own
+## the points, so what buying means is scenes/main.gd's decision.
+signal skill_rank_up_requested(skill: StringName)
+
+## The skill panel opened or closed, and the game is meant to freeze while it is
+## up. Reported rather than acted on: `get_tree().paused` lives on the SceneTree
+## rather than the scene, so the script that sets it has to be the one that clears
+## it — see the note on the victory panel in this folder's doc.
+signal skill_panel_toggled(open: bool)
+
 ## How long a transient banner holds before it starts fading, and how long the
 ## fade takes. Long enough to read mid-fight, short enough that it is gone
 ## before the fight the checkpoint was banked for.
@@ -36,6 +48,7 @@ const FLASH_FADE := 0.7
 @onready var _checkpoint_label: Label = $CheckpointLabel
 @onready var _level_up_label: Label = $LevelUpLabel
 @onready var _unit_info_bar: UnitInfoBar = $UnitInfoBar
+@onready var _skill_panel: SkillPanel = $SkillPanel
 @onready var _victory_panel: Control = $VictoryPanel
 @onready var _restart_button: Button = $VictoryPanel/RestartButton
 
@@ -47,6 +60,9 @@ var _flash_tweens := {}
 
 func _ready() -> void:
 	_restart_button.pressed.connect(restart_requested.emit)
+	_skill_panel.rank_up_requested.connect(skill_rank_up_requested.emit)
+	_skill_panel.toggled.connect(skill_panel_toggled.emit)
+	_skill_panel.toggled.connect(_on_skill_panel_toggled)
 	# The whole tree is paused while the victory panel is up — that is what makes
 	# the run over rather than merely won — and a paused Control is skipped by GUI
 	# input dispatch, which would leave the button dead under the cursor. This is
@@ -90,6 +106,41 @@ func set_skills(points: int, skills: Array) -> void:
 	# The points total is the only part that ever needs chasing: it is what turns
 	# a keypress from a no-op into a purchase.
 	_skills_label.modulate = Color(1, 0.85, 0.4) if points > 0 else Color(0.72, 0.76, 0.84)
+
+
+## The whole tree, for the panel (issue #62).
+##
+## Separate from [method set_skills] because they draw different things from
+## different reports — that one is the crib sheet for the two keys, this is every
+## node including the locked ones. They are refreshed together because both move
+## on the same two events, which is scenes/main.gd's business and not this
+## folder's.
+func set_skill_catalogue(points: int, catalogue: Array) -> void:
+	_skill_panel.set_catalogue(points, catalogue)
+
+
+## Banners come down when the skill panel goes up, the same rule the death and
+## victory screens keep — and this is the likeliest collision of the three rather
+## than a corner case. "LEVEL 7 — 1 skill point" is the banner that *tells* the
+## player to open this panel, so a player who does what it says immediately reads
+## it across the panel's own title. Measured on the first screenshot of the panel,
+## not reasoned about.
+func _on_skill_panel_toggled(open: bool) -> void:
+	if open:
+		_clear_flashes()
+
+
+## The run is over; the skill panel is finished for good.
+##
+## Separate from [method show_victory] because the two do not happen at the same
+## moment: the run is decided when the boss falls, and the screen waits a beat for
+## the corpse to finish toppling. Between those, `scenes/main.gd` has stopped
+## answering for the pause — so a panel that could still be opened in that gap
+## would come up over a live level and *not* freeze it, which is the one thing
+## this folder promises about it unconditionally. Cross-review of PR #62 found the
+## window; it is ~1.2 s wide and this is what closes it.
+func retire_skill_panel() -> void:
+	_skill_panel.set_unavailable()
 
 
 ## Point the info bar at the selected unit. Connected to
@@ -140,6 +191,10 @@ func show_victory() -> void:
 	# of this folder, rather than something true only while a guard in another
 	# folder keeps it true.
 	hide_death()
+	# The skill panel goes down and stays down for the same reason, and one
+	# stronger: it freezes and unfreezes the tree, so closing it behind a victory
+	# screen would hand the player a won run they can still walk around in.
+	_skill_panel.set_unavailable()
 	_victory_panel.show()
 	# After show(), which is what makes the button focusable. Enter then works as
 	# well as a click, and by this point nothing else on screen takes input at all.

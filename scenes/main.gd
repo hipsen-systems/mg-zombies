@@ -92,9 +92,12 @@ func _ready() -> void:
 	# belongs to, and hands on the clicks his attack command did not take.
 	_hero.select_clicked.connect(_selection.select_at)
 	_selection.selection_changed.connect(_hud.show_unit)
-	# The one wire that runs the other way, from the HUD back into the game: the
-	# victory screen asks, this script decides what starting a run means.
+	# The wires that run the other way, from the HUD back into the game: the
+	# victory screen asks, this script decides what starting a run means — and
+	# since issue #62 the skill panel asks on the same terms.
 	_hud.restart_requested.connect(_restart_run)
+	_hud.skill_rank_up_requested.connect(_on_skill_rank_up_requested)
+	_hud.skill_panel_toggled.connect(_on_skill_panel_toggled)
 
 	_hud.set_hero_health(_hero.health.current, _hero.health.max_health)
 	# Same reason the health bar is pushed by hand: nothing re-sends these, so a
@@ -125,8 +128,45 @@ func _on_hero_killed(victim: Node3D) -> void:
 
 ## Redraw the skill line. Both the points total and the ranks live on it, and the
 ## two move independently, so it is one method rather than two half-updates.
+##
+## The panel (issue #62) is redrawn from the same two events and in the same
+## place, because it draws the same two moving numbers. It takes a second, fuller
+## report rather than the crib line's: the line lists what a key can buy, the
+## panel lists every node whether a key reaches it or not.
 func _refresh_skills() -> void:
 	_hud.set_skills(_hero.experience.skill_points, _hero.skill_summary())
+	_hud.set_skill_catalogue(_hero.experience.skill_points, _hero.skill_catalogue())
+
+
+## The player clicked a node in the skill panel (issue #62).
+##
+## It goes through the same [method Hero.spend_skill_point] the `1` and `2` keys
+## use, refusals and all, rather than a path of its own — the panel's buttons are
+## already disabled on exactly the nodes that method would refuse, so a click that
+## arrives here anyway is a race with a level-up and should lose the same way a
+## keypress would. Nothing is redrawn from here: a purchase emits
+## `skill_ranked_up`, which is already wired to `_refresh_skills`.
+func _on_skill_rank_up_requested(skill: StringName) -> void:
+	_hero.spend_skill_point(skill)
+
+
+## Freeze the run while the skill panel is up (issue #62).
+##
+## **This script owns the pause flag**, as it does for the victory screen and for
+## the same reason: `paused` lives on the SceneTree rather than the scene, so it
+## survives anything the scene does and exactly one script may set it. The HUD
+## reports that the panel opened; what that costs the run is decided here.
+##
+## Choosing a build is a considered decision and the zombies do not wait, so the
+## alternative — a tree readable only by a player who is not currently being
+## chased — would make the panel unusable at exactly the moment a level is banked.
+##
+## The `_run_over` guard is the same one the respawn path carries, and it matters
+## for the opposite reason there: unpausing a won run would take the win back.
+func _on_skill_panel_toggled(open: bool) -> void:
+	if _run_over:
+		return
+	get_tree().paused = open
 
 
 ## One zombie per `Z` cell from [param from_segment] onward. The map says where
@@ -229,6 +269,12 @@ func _on_hero_died() -> void:
 func _on_boss_died(_boss: Zombie) -> void:
 	# Before the wait, not after — see the guard in _on_hero_died().
 	_run_over = true
+	# Also before the wait, and for a reason of its own: from this line on this
+	# script refuses to touch the pause flag, so a skill panel opened during the
+	# beat below would come up over a level that is still running. Retiring it here
+	# rather than with the victory screen keeps "the game freezes while it is up"
+	# true without an exception. Cross-review of PR #62 found the window.
+	_hud.retire_skill_panel()
 	await get_tree().create_timer(VICTORY_DELAY).timeout
 	if not is_inside_tree():
 		return

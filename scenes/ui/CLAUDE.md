@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/hero, scenes/enemies, scenes/components, scenes/map]
+depends-on: [scenes, scenes/hero, scenes/enemies, scenes/components, scenes/map, scenes/skills]
 ---
 
 # scenes/ui/
@@ -19,6 +19,9 @@ five elements and one of them non-trivial.
 - `unit_selection.tscn` / `unit_selection.gd` (`class_name UnitSelection`) — a
   `Node3D` in `main.tscn` holding the selection ring. Owns *what* is selected;
   the HUD only draws it.
+- `skill_panel.tscn` / `skill_panel.gd` (`class_name SkillPanel`) — the skill
+  tree as something clickable (issue #62), instanced inside `hud.tscn`. See
+  below.
 
 **Every element is fed by a method call.** `scenes/main.gd` wires the hero's
 signals to `HUD` methods and never touches a Label, so this folder can re-lay
@@ -57,6 +60,14 @@ No class is named here, so a boss or a second enemy type needs no change in this
 folder — but the three above are a real runtime contract, which is why
 `scenes/hero` and `scenes/enemies` are in the frontmatter.
 
+**`scenes/skills` is in it for a weaker reason, and the difference is worth
+knowing.** No script here loads, names or imports anything from that folder — the
+skill panel reads plain dictionaries. What rests on it is a *claim* in this doc:
+that the panel's rows are prerequisite depth and that its refusal text is the
+tree's own words. Change what `SkillTree.depth()` means and no code here breaks
+while this doc quietly stops being true, which is precisely the drift the edge
+exists to flag.
+
 **A unit reports its own numbers rather than the panel reaching in for named
 properties**, because the property that matters differs per actor: the hero's
 travel speed is his `move_speed`, a zombie's is its *chase* speed, and only they
@@ -93,11 +104,12 @@ fed by method call, never reached into:
   points are unspent, because the count is the only part that changes what a
   keypress does.
   **It is a crib sheet for the keys, not a view of the skill tree**, and issue
-  #9 is where those stopped being the same list: the hero now has an authored
-  tree larger than the two keys bound to it, and `skill_summary()` reports the
-  bound ones. Drawing the rest needs a panel, which is not this folder's yet —
-  and when it is, it is a new element rather than a longer line, because six
-  entries do not fit on one.
+  #9 is where those stopped being the same list: the hero has an authored tree
+  larger than the two keys bound to it, and `skill_summary()` reports the bound
+  ones. Issue #62 drew the rest, and did it as **a new element rather than a
+  longer line** — six entries do not fit on one. The two are fed from different
+  reports (`skill_summary()` and `skill_catalogue()`) and refreshed together,
+  because both move on the same two events.
 - **`flash_level_up(level, points)`** is the transient half, and it exists for
   the same reason `flash_checkpoint()` does: the bar below already says it, and
   a bar does not *reach* a player mid-fight — which is exactly when the kill that
@@ -112,6 +124,83 @@ death and victory screens call it for the reason recorded below — with the
 level-up banner the more likely of the two to be up, since the kill that levels
 the hero is often the one that leaves him low, and the boss is worth enough XP
 that the winning blow frequently levels him outright.
+
+## The skill panel (issue #62)
+
+`K` opens the tree, `K` or `Escape` closes it, and every node is a card with a
+button. Issue #9 shipped the tree with no UI, which left four of its six nodes
+with **no way to be bought in play at all** — `1` and `2` reach two of them.
+Four more hotkeys would have been a worse answer than none.
+
+**It formats and never interprets**, which is the same rule the skill line keeps
+and is worth restating because this panel is much more tempting to break. Every
+number and sentence on a card arrives ready to print from
+`Hero.skill_catalogue()`: the cost, the rank, the description, what the next rank
+would buy, and *why* a node cannot be bought — that last one is
+`SkillTree.refusal()`'s own words, so "Reach needs Strength 3" is game content
+rather than a string built here. Nothing in this folder knows what a rank does.
+**A new skill in the `.tres` therefore appears here with no edit to this folder**,
+which is the test of whether the split is real.
+
+**The layout is derived, not authored.** Cards are grouped into rows by
+`SkillTree.depth()` — prerequisite depth, not a position. A node still carries no
+coordinates, so the alternative was a position per node stored *here* and edited
+every time game content gained a skill. Two things follow: an empty tier draws no
+row (the depths present are read off the data, not assumed to run 0..n), and a
+`depth()` that returned a constant would silently collapse the tree into one row,
+which is why `tests/` asserts more than one tier exists.
+
+**It rebuilds outright on every redraw** rather than patching cards in place.
+Redraws happen when a point is earned or spent — never per frame — and a rebuilt
+panel cannot show a rank that was refunded or a refusal that has since been met.
+Note `queue_free()` alone is not enough: it frees at the end of the frame, so the
+rows are also `remove_child`ed immediately or a redraw in the same frame stacks
+the new rows under the old.
+
+**Three things it does not own**, all for reasons this folder already records
+elsewhere:
+
+- **It does not buy anything.** `rank_up_requested` goes out through
+  `HUD.skill_rank_up_requested` to `scenes/main.gd`, which calls the hero. Same
+  arrangement as `restart_requested`: this folder does not own the points, the
+  ledger or the rules, and a widget that spent them would be a second owner of
+  all three.
+- **It does not pause the game**, though the game *is* paused while it is up.
+  `skill_panel_toggled(open)` reports; `scenes/main.gd` sets `get_tree().paused`,
+  because that flag lives on the `SceneTree` rather than the scene and needs
+  exactly one owner — the same argument the victory panel makes.
+- **It does not decide when it is unavailable.** Two callers retire it, and they
+  fire at different moments on purpose. `show_victory()` does, which is this
+  folder keeping "the victory panel owns the screen" true from the inside — a
+  skill panel openable behind a won run would also *unpause* it on the way out.
+  And `retire_skill_panel()` does, called by `scenes/main.gd` the instant the boss
+  falls, **~1.2 s before the screen appears**. That gap is why the second exists:
+  the run is decided when the boss dies, and from that moment that script stops
+  touching the pause flag, so a panel opened during the beat would come up over a
+  level still running and freeze nothing. Cross-review of PR #62 found it. The
+  freeze below is stated without an exception, and this is what keeps that honest
+  rather than nearly true.
+
+**It carries `PROCESS_MODE_ALWAYS` for the reason the victory panel does**, and
+needs it twice over: a paused node receives neither input nor GUI dispatch, so
+without it the panel could neither close itself nor answer a click on its own
+buttons.
+
+**This folder reads exactly one input action, and it is the first one anywhere
+outside `scenes/hero/`.** That folder owns every other action because every other
+action is a command to a unit; opening a panel issues no order and changes
+nothing about what the hero is doing. It does not break the left-mouse-button
+rule above either — a keyboard action nothing else claims is not a second
+listener on `select_command`. `Escape` is deliberately shared with the hero's
+`cancel_command`: the panel consumes the event when it is open, so closing it
+does not also disarm an attack in the game behind it.
+
+**Banners come down when it opens.** The death and victory screens already do
+this, and the skill panel is the likeliest collision of the three rather than a
+corner case: "LEVEL 7 — 1 skill point" is the banner that *tells* the player to
+open this panel, so a player who acts on it immediately reads it straight across
+the panel's own title. Found by screenshotting the panel, not by reasoning about
+it.
 
 ## The victory panel (issue #39)
 
@@ -232,10 +321,14 @@ difference worth stating rather than assuming.
   child (`scenes/components/`) and from `Hero.skill_ranked_up`. Nothing here
   reads that component: `scenes/main.gd` connects its signals and calls these,
   which is the same inward-only arrangement everything else in this folder has.
-- Emits `HUD.restart_requested`, consumed by `scenes/main.gd`. It is the only
-  signal this folder sends into the game rather than draws from it, and it is
-  also what pairs with the pause: that script sets `get_tree().paused`, so it is
-  the one that has to clear it.
+- Emits `HUD.restart_requested`, consumed by `scenes/main.gd`, and since issue
+  #62 `HUD.skill_rank_up_requested(skill)` and `HUD.skill_panel_toggled(open)` on
+  the same terms — the three signals this folder sends into the game rather than
+  draws from it, all re-emitted straight from a child panel. Two of them pair
+  with the pause: that script sets `get_tree().paused`, so it is the one that has
+  to clear it, whether the run was won or the tree was merely opened.
+  Issue #8's `set_skills()` gained `set_skill_catalogue(points, catalogue)`
+  beside it, fed from `Hero.skill_catalogue()`.
 - **`scenes/main.gd` re-selects the hero on every respawn**, before it clears
   the restored segment. That ordering is its concern, not this folder's, but it
   is the reason a freed selection is rare rather than routine — the
@@ -245,4 +338,4 @@ difference worth stating rather than assuming.
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: d5fb938 -->
+<!-- verified-against: 0bc0fe6 -->

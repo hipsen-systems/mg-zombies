@@ -165,6 +165,17 @@ with before touching the rest:
   harder is what would turn this from a rule into a coin flip. The 8 s delay is
   what keeps a two-second reposition free.
 
+**Both of those margins stopped being theoretical in issue #62**, and that is the
+only thing that change did to this folder — no stat moved. `reach` and `recovery`
+are two of the four nodes that had no hotkey and so could not be bought in play
+at all; the panel in `scenes/ui/` now sells them. So the 2.8-against-3.0 reach
+gap and the 7-against-12 regeneration margin describe builds a player can
+actually arrive at, where until now they described builds only
+`tests/smoke_skills.gd` ever constructed. The numbers were always checked; what
+changed is that they are now *encountered*. If either turns out to be wrong, it
+will be wrong in play rather than in a test, which is the first time that has
+been true of this table.
+
 The stats are a first pass and are meant to be argued with: nothing in the game
 was balanced against an end boss before there was one.
 
@@ -286,4 +297,4 @@ wider than this will not.
   the boss has no model of its own at all, so whatever it eventually wears is a
   separate question from what the horde does.
 
-<!-- verified-against: d5fb938 -->
+<!-- verified-against: 0bc0fe6 -->

@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scenes/ui/hud.gd" id="1_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/unit_info_bar.tscn" id="2_info_bar"]
+[ext_resource type="PackedScene" path="res://scenes/ui/skill_panel.tscn" id="3_skill_panel"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -91,7 +92,8 @@ theme_override_colors/font_color = Color(0.72, 0.76, 0.84, 1)
 text = "Right-click: move / attack
 Left-click: select a unit
 A + left-click: attack / attack-move
-1 / 2: spend a skill point"
+1 / 2: spend a skill point
+K: skill tree"
 
 [node name="DeathLabel" type="Label" parent="."]
 visible = false
@@ -127,6 +129,8 @@ theme_override_font_sizes/font_size = 20
 text = "Returning to the last checkpoint"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="SkillPanel" parent="." instance=ExtResource("3_skill_panel")]
 
 [node name="VictoryPanel" type="Control" parent="."]
 visible = false
