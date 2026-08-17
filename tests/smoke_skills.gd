@@ -139,7 +139,32 @@ func _check() -> void:
 		hero.experience.skill_points == points_before - cost,
 		"%d -> %d points" % [points_before, hero.experience.skill_points])
 
-	# --- 5. buying the whole tree ---------------------------------------------
+	# --- 5. a stat that moves says so -----------------------------------------
+	# Issue #65. `scenes/ui/` reads unit_info() once, when a unit is selected, and
+	# has no way to notice a number changing under it — so the bar kept showing the
+	# damage the hero had before a rank was bought until the player selected
+	# something else and came back. `stats_changed` is the fix, and the half worth
+	# asserting is not *that* it fires but *when*: a listener redrawing from it has
+	# to be able to read the new value already, or the panel sits permanently one
+	# purchase behind and looks identical to the bug it replaced.
+	#
+	# Asserted here and not against the panel, because this folder reads no
+	# scenes/ui/ node — see its doc, and issue #55 for whether that should change.
+	var heard := {"count": 0, "damage": 0.0}
+	var on_stats := func() -> void:
+		heard["count"] += 1
+		heard["damage"] = float(hero.unit_info().get("damage", 0.0))
+	hero.connect(&"stats_changed", on_stats)
+	var damage_before := float(hero.unit_info().get("damage", 0.0))
+	var announced: bool = hero.spend_skill_point(&"strength")
+	check("buying a rank announces that the stats moved",
+		announced and heard["count"] == 1, "%d emission(s)" % heard["count"])
+	check("and a listener already reads the new number rather than the old one",
+		heard["damage"] > damage_before,
+		"%.1f -> %.1f dmg" % [damage_before, heard["damage"]])
+	hero.disconnect(&"stats_changed", on_stats)
+
+	# --- 6. buying the whole tree ---------------------------------------------
 	# Every node to its cap, in whatever order the sweep reaches them. That the
 	# order does not matter is the fold's property, not an accident: adds are
 	# summed against the authored base and scales multiply what is left.
@@ -161,7 +186,7 @@ func _check() -> void:
 		not hero.spend_skill_point(&"strength"),
 		hero.skill_refusal(&"strength"))
 
-	# --- 6. what a full build must still not be able to do --------------------
+	# --- 7. what a full build must still not be able to do --------------------
 	# See the header. Both numbers belong to other folders; this is the only
 	# place either is checked against what the tree sells.
 	var boss = _boss()
