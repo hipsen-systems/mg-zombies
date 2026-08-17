@@ -331,7 +331,12 @@ difference worth stating rather than assuming.
 - Instanced by `scenes/main.tscn`; `UnitSelection.hero` is wired from there as a
   `NodePath`, the way the camera's `target` is.
 - Consumes `Hero.select_clicked`, and `Health.health_changed` / `Health.died` on
-  whatever is selected. `scenes/main.gd` also calls `set_hero_health()`,
+  whatever is selected — plus `stats_changed` on the same unit since issue #65,
+  which is the first signal this folder takes from a *unit* rather than from a
+  component of one. Subscribed and dropped with the selection, exactly as the
+  other two are, and not wired through `scenes/main.gd` for the reason that
+  folder's doc gives: it does not know what is selected, so a wire through it
+  would be a second record of something this folder already holds. `scenes/main.gd` also calls `set_hero_health()`,
   `set_attack_move_armed()`, `show_death()` / `hide_death()`,
   `flash_checkpoint()` and `show_victory()` — the last two from
   `Checkpoint.reached` and the boss's `Zombie.died`, the only HUD calls that do
@@ -357,4 +362,4 @@ difference worth stating rather than assuming.
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: 0bc0fe6 -->
+<!-- verified-against: f285e52 -->
