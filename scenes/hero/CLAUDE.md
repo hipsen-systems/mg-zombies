@@ -441,4 +441,4 @@ to touch. `tests/smoke_progression.gd` asserts it directly.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: 3e0c926 -->
+<!-- verified-against: f72a398 -->
