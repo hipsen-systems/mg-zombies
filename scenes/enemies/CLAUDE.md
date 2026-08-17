@@ -113,8 +113,8 @@ change in `scenes/ui/`, because a unit describes itself to the info bar through
 
 | Export | Zombie | Boss | Why the boss's value |
 |--------|--------|------|----------------------|
-| `max_health` (on `Health`) | 30 | 240 | 20 hero swings — a fight with a shape, not a slog |
-| `attack_damage` | 9 | 25 | four hits kill a full-health hero |
+| `max_health` (on `Health`) | 30 | 190 | 16 hero swings — a fight with a shape, not a slog |
+| `attack_damage` | 9 | 18 | six hits kill a full-health hero |
 | `attack_cooldown` | 1.3 | 2.0 | the damage is huge, so it has to be dodgeable |
 | `attack_range` | 2.0 | 3.0 | **longer than the hero's 2.2** — see below |
 | `chase_speed` | 3.4 | 2.2 | slow enough that kiting is a real option |
@@ -176,8 +176,76 @@ changed is that they are now *encountered*. If either turns out to be wrong, it
 will be wrong in play rather than in a test, which is the first time that has
 been true of this table.
 
-The stats are a first pass and are meant to be argued with: nothing in the game
-was balanced against an end boss before there was one.
+## The first pass was unwinnable, and what measuring it settled (issue #66)
+
+The line below used to end this section by saying the stats were a first pass
+meant to be argued with. Playtesting made the argument: **no build a player can
+reach could kill the boss**, so the run could not be finished, and every check in
+the repo stayed green while that was true. What follows is measured against the
+real scene rather than reasoned about, which is the only reason it is trustworthy
+— the arithmetic done first got the level's XP yield wrong by nearly double.
+
+**What the level actually pays is 3 skill points.** 19 `Z` cells at 10 XP each is
+190 XP, which is level 4. Every estimate of this fight has to start there and not
+from the 26-point full build, which is level 27 and exists only in
+`tests/smoke_skills.gd`.
+
+| Hero, standing and trading | Old (240 hp / 25 dmg) | Now (190 / 18) |
+|---|---|---|
+| No points spent | dies, boss on 65% | dies, boss on 24% |
+| 3 points — the level's whole yield | dies, boss on 48% | **wins with 10/100 hp** |
+| Full 26-point build | wins with 50/150 | wins with 96/150 |
+
+**Only `max_health` and `attack_damage` moved.** Reach, cooldown, chase speed,
+the radii and the regeneration are all untouched, because each of those is a
+design statement and none of them was the fault.
+
+**The regeneration was not the fault, and that is the finding worth keeping.**
+It was the obvious suspect — the fight is unwinnable and the boss heals three
+times faster than the hero — so it was tested rather than assumed, by chipping it
+down and withdrawing to heal, six cycles, at three different regen rates:
+
+| Boss regen | Net progress per cycle |
+|---|---|
+| 12/s (shipped) | **exactly 0** — 240 → 240 over six cycles |
+| 4/s (matched to the hero's own) | ~0 — 240 → 224 over six cycles |
+| 0/s | 54 a cycle; the boss dies on the fifth |
+
+So turning it down would not have fixed anything: the walk back is ~14 s each
+way and the boss heals through all of it, which swamps the rate. Only removing
+regeneration entirely makes chipping work, and that would delete the design rule
+outright. **The rule was doing its job perfectly; the fight simply had no other
+way to be won.** Worth generalising, because the suspect the symptom names is not
+always the cause — "heals too fast" was a true description of the experience and
+the wrong diagnosis of it.
+
+**Retreating to the boss-room gate is not a disengage**, which nothing here said
+and the measurement found by accident. The boss follows to its leash limit, 22
+units from its post, and the gate is 24 — leaving it 2 units from a hero standing
+there, well inside his own 9-unit `acquire_radius`, so an idle hero re-acquires
+it on the next tick and the fight never breaks off at all. The disengage in the
+table above had to withdraw to the *previous* checkpoint, 84 units back. The
+"it can never follow the hero out of the room" bullet above is still true and is
+a different claim from "there is anywhere in the room to stand and heal", which
+is false.
+
+**The room is still the difficulty, and this is what keeps standing-and-trading
+from being the answer.** With the boss room's own zombies left alive, the same
+3-point hero dies with the boss on 43%. That is not a softer or harder version of
+the table above but a different fight: the points there are *paid for* by those
+kills, so a hero who has them has already cleared the room. Charging the gate
+without doing the level is the row that loses, and it loses for the right reason.
+
+`tests/smoke_boss.gd` holds the top-right cell of that table — it is the only
+assertion in the suite that the game can be completed, and it fails on the old
+numbers with the exact symptom playtesting reported.
+
+The stats are still meant to be argued with, and one is now weaker than it was:
+standing still and trading at full investment is a win by 10 hp, where the reach
+inversion says it should be a loss. It is a hair's-breadth win in the worst
+possible line of play, so the encounter still rewards moving — but if the fight
+ever reads as too forgiving, that cell is the one to push on, and pushing on it
+means `max_health` rather than the reach.
 
 **It does not aggro on the frame the hero respawns**, and that is the same
 invariant `scenes/map/` states for spawns rather than a second rule: the boss
@@ -271,7 +339,14 @@ wider than this will not.
   and a victim without the property is worth nothing rather than an error.
 - **Describes itself to the unit info bar** through `unit_info()` and the
   `display_name` export (per-instance like every stat, so the boss-room guard
-  the class docs describe can announce itself without a new scene). The travel
+  the class docs describe can announce itself without a new scene).
+  **It does not emit `stats_changed`**, the optional fourth member issue #65
+  added to that contract, and the absence is a decision rather than an omission:
+  nothing moves a zombie's numbers after it spawns, so there is never a stale row
+  to redraw. The hero has one because a skill point moves his mid-run. Anything
+  here that ever gains a buff, an enrage or a scaling stat owes the signal —
+  without it the panel silently shows the numbers the thing spawned with, which
+  reads as a balance question rather than a UI one. The travel
   speed it reports is `chase_speed`, not `roam_speed`: what a player wants when
   they click a zombie is how fast it closes on them. Selecting a zombie does
   nothing to it — `scenes/ui/` never issues an order. That folder also watches

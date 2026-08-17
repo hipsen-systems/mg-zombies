@@ -77,6 +77,23 @@ signal killed(victim: Node3D)
 ## been applied, so a listener reads the new numbers rather than the old ones.
 signal skill_ranked_up(skill: StringName, rank: int)
 
+## Emitted when the numbers [method unit_info] reports have been recomputed, so
+## anything drawing them can redraw (issue #65).
+##
+## [b]This is [signal Health.health_changed] for the stats beside the bar[/b], and
+## it exists for the same reason: a panel cannot notice a value changing under it.
+## Without one, the info bar read [method unit_info] once at selection and kept
+## showing the damage the hero had before a rank was bought, until the player
+## selected something else and came back.
+##
+## Deliberately says *that* they moved and not *why*. It fires from the fold —
+## the one place every sellable stat is written — rather than from the purchase
+## that triggered it, so an item, a buff or a respec moving a stat later announces
+## itself through this with nothing new wired up. That is also why it carries no
+## payload: a reader re-asks [method unit_info], which is the report that decides
+## which numbers are worth showing in the first place.
+signal stats_changed
+
 ## Emitted when the attack command is armed or disarmed, so the HUD can show
 ## the player that the next left-click means "attack" rather than "select".
 signal attack_move_armed_changed(armed: bool)
@@ -508,6 +525,11 @@ func _apply_skills() -> void:
 		var added := float(_stat_added.get(stat, 0.0))
 		var scaled := float(_stat_scaled.get(stat, 1.0))
 		_write_stat(stat, (base + added) * scaled)
+	# After every write, so a listener re-reading unit_info() gets the new numbers
+	# rather than a half-folded set. Emitted from here rather than from
+	# spend_skill_point() because this is the only place a sellable stat moves —
+	# see the note on the signal.
+	stats_changed.emit()
 
 
 func _read_stat(stat: StringName) -> float:
