@@ -347,11 +347,16 @@ describes. See `scenes/enemies/CLAUDE.md`.
   `Hero.skill_ranked_up`, plus `xp_changed`, `leveled_up` and `points_changed`
   from the hero's `Experience` child — see "Progression" above. Issue #62 added
   `HUD.skill_rank_up_requested` and `HUD.skill_panel_toggled`, the second and
-  third signals to run from `scenes/ui/` back into the game. Unconsumed so
-  far: `Hero.move_ordered` and `Hero.attack_ordered` — this doc used to earmark
-  them "for the selection UI, issue #36", and that turned out to be wrong:
-  selection is deliberately inert and reads nothing about what the hero is
-  doing. They now have no planned consumer. `Zombie.died` is consumed **on the
+  third signals to run from `scenes/ui/` back into the game. **`Hero.attack_ordered`
+  is the last one still unconsumed**, and its two companions stopped being so in
+  issue #67: this doc earmarked all three "for the selection UI, issue #36",
+  which turned out to be wrong — selection is deliberately inert and reads
+  nothing about what the hero is doing — and then sat calling them unconsumed for
+  four issues until the order marker turned out to be what they were for after
+  all. `attack_ordered` still has no consumer, because a marker that tracks a
+  moving unit is a different feature from a ping on the ground. **All four of the
+  hero's acquiring paths emit it anyway**, which cross-review of PR #70 is what
+  made true. `Zombie.died` is consumed **on the
   boss and nowhere else** (issue #39) — every trash zombie's is still dropped.
   It was the other candidate XP hook and stayed unused: `Hero.killed` won it,
   because a death anything could have caused is the wrong signal to pay a hero
@@ -364,4 +369,4 @@ files (it doesn't load the global class cache), so it reports a false
 "Could not find type" on scripts that reference `Hero`, `LevelMap`, or
 `RTSCamera`. Run the scene instead to check those.
 
-<!-- verified-against: c007ea1 -->
+<!-- verified-against: 4a9eb45 -->

@@ -146,4 +146,4 @@ plain `Resource` scripts. The declared edge on `scenes/hero/` is about the
 `scenes/hero/` is the only consumer today: it owns the ledger, the fold, and the
 key bindings. `tests/smoke_skills.gd` drives the tree through him.
 
-<!-- verified-against: 5b166d3 -->
+<!-- verified-against: 4a9eb45 -->
