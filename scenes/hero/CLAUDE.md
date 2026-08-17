@@ -157,9 +157,17 @@ Measured 1v1 against one zombie: ~18 HP lost per kill, ~6 s of fighting.
 **The end boss inverts the reach advantage deliberately** (issue #39): its 3.0
 beats his 2.2, where every zombie's 2.0 loses to it. So the row above is a
 baseline meant to be broken by one encounter rather than a rule about all of
-them — standing and trading is a fair fight against a zombie and a lost one
-against the boss, which is the entire difference between the two.
-`scenes/enemies/` holds those numbers and the reasoning.
+them. `scenes/enemies/` holds those numbers and the reasoning.
+
+**This paragraph used to end "and standing and trading is a lost fight against
+the boss", and issue #66 made that untrue rather than disproving it.** Those
+numbers were unwinnable by any build a player can reach, so they were lowered;
+at the ones that replaced them, a hero holding every point the level pays wins a
+stand-up fight by 10 of 100 hp. The inversion is intact and it still decides the
+encounter — that margin is one boss swing, in the worst line of play available,
+and the boss room's own zombies turn the same fight into a loss. But it is a
+margin now and not a rule, so **do not lean on "he cannot win by standing
+still"** without re-measuring it. The full table is in `scenes/enemies/`.
 
 **Out-of-combat regeneration** starts `regen_delay` after the last combat
 event, where *both* taking a hit and landing one count — a hero trading blows
@@ -433,4 +441,4 @@ to touch. `tests/smoke_progression.gd` asserts it directly.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: f285e52 -->
+<!-- verified-against: f72a398 -->

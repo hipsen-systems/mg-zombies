@@ -24,6 +24,7 @@ placed one cell from a spawn.
 | `smoke_traversal.gd` | The hero walks start cell to boss room |
 | `smoke_combat.gd` | He kills, acquires his own targets, and heals afterwards |
 | `smoke_progression.gd` | Kills pay XP, levels pay points, and points pay stats |
+| `smoke_boss.gd` | The run can be finished: a hero who did the level can kill the boss |
 | `smoke_skills.gd` | The skill tree is sound, gates what it says, sells nothing it must not, every node of it is reachable, and a stat that moves says so |
 
 ## Running them
@@ -145,6 +146,21 @@ PR, so the constraints run outward as well as in:
   and the failure mode is friendly rather than obviously wrong ("levelling feels
   stingy, give it a little something"). It is the first assertion here that is
   primarily **negative**: what must *not* have changed.
+- **`smoke_boss.gd` asserts that the game has an ending** (issue #66), which
+  nothing did before and which turned out not to be true. The boss shipped in #39
+  with numbers its own doc called a first pass; no build a player can reach could
+  kill it, and the run was unfinishable for as long as that went unnoticed —
+  with every check here green, because none of them fought it.
+  Three things about it are deliberate. It funds the hero with **exactly** what
+  the level pays (19 kills, 3 points) rather than the full build every other test
+  here constructs, because a cap is checked at the cap and a *floor* has to be
+  checked at the floor. It **clears the room first**, which is not a softer fight
+  but the same one: those 19 kills are what paid for the points, so a hero
+  holding them has already done it. And it plays the fight **badly on purpose** —
+  walk in and stand there — so what it asserts is that a solution exists for a
+  player who has not mastered the encounter, never that the encounter is easy.
+  It was run against the old numbers to prove it discriminates, and it fails
+  there with the symptom playtesting reported.
 - **`smoke_skills.gd` is where two cross-folder invariants stop being prose**
   (issue #9). The skill tree is authored in `scenes/skills/` and can silently
   undo a decision made somewhere else: `reach` could out-reach the end boss,
@@ -219,4 +235,4 @@ children — `current`/`max_health` on one, and `level`/`xp`/`skill_points`,
 It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
 including the XP bar #8 added.
 
-<!-- verified-against: f285e52 -->
+<!-- verified-against: f72a398 -->

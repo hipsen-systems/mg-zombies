@@ -33,7 +33,7 @@ leash_radius = 22.0
 alert_delay = 1.0
 chase_speed = 2.2
 attack_range = 3.0
-attack_damage = 25.0
+attack_damage = 18.0
 attack_cooldown = 2.0
 xp_reward = 100.0
 regen_delay = 8.0
@@ -61,4 +61,4 @@ target_desired_distance = 1.0
 
 [node name="Health" type="Node" parent="."]
 script = ExtResource("2_health")
-max_health = 240.0
+max_health = 190.0
