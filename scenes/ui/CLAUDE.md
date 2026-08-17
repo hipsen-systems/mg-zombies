@@ -336,7 +336,8 @@ difference worth stating rather than assuming.
   component of one. Subscribed and dropped with the selection, exactly as the
   other two are, and not wired through `scenes/main.gd` for the reason that
   folder's doc gives: it does not know what is selected, so a wire through it
-  would be a second record of something this folder already holds. `scenes/main.gd` also calls `set_hero_health()`,
+  would be a second record of something this folder already holds.
+- `scenes/main.gd` also calls `set_hero_health()`,
   `set_attack_move_armed()`, `show_death()` / `hide_death()`,
   `flash_checkpoint()` and `show_victory()` — the last two from
   `Checkpoint.reached` and the boss's `Zombie.died`, the only HUD calls that do
