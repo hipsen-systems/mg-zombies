@@ -108,6 +108,14 @@ answer is a decision:
   ordinary way would hand him straight back to the branch that repaths, and the
   hold would end the first time anything strayed near him.
 
+  It still emits `attack_ordered`, so **all four acquiring paths announce
+  themselves**. Cross-review of PR #70 caught that the first version did not:
+  the branch is `_engage()` minus the order change and the repath, and the
+  signal had been dropped along with them. Invisible today because nothing
+  consumes it — and that is the reason it was worth fixing rather than noting,
+  since the first listener would have found one acquisition silently missing in
+  a file nobody had touched.
+
   **A hold outlives the thing that walks into it.** `_finish_engagement()`
   returns early for `HOLD`, and without that line the order ends on the first
   kill: he stands his ground right up until the moment it matters and then

@@ -26,6 +26,10 @@ extends CharacterBody3D
 ##   is reading the rest of the screen is not chewed on for free. It also makes
 ##   a separate retaliate-when-hit rule unnecessary: nothing can reach the hero
 ##   from outside [member acquire_radius] anyway.
+## - [b]HOLD does, at a different radius.[/b] It acquires at
+##   [member attack_range] rather than [member acquire_radius], so it takes what
+##   comes to it and never has anything to walk to — which is the whole of the
+##   difference from IDLE.
 ##
 ## [b]This script never names an enemy class.[/b] Targets are found through the
 ## "enemies" group and used through take_damage()/is_dead(), so scenes/hero/
@@ -56,6 +60,11 @@ signal holding_position_changed(holding: bool)
 
 ## Emitted when the hero is told to attack something — by right-click, by
 ## A+click, or by acquiring a target on his own.
+##
+## [b]All four acquiring paths fire it[/b], including a held hero taking what
+## walks into his reach. Still unconsumed, which is why that last one is worth
+## stating: a gap here would stay invisible until the first listener arrived, and
+## then be a bug in a file nobody had touched.
 signal attack_ordered(target: Node3D)
 
 ## Emitted when a target dies from this hero's damage. The XP hook for issue #8,
@@ -820,9 +829,20 @@ func _reassess() -> void:
 		# taking a target here by switching to ATTACK_TARGET would hand the hero
 		# straight back to the branch that repaths, and the hold would end the
 		# first time anything strayed near him.
+		#
+		# Everything _engage() does *except* the order change and the repath,
+		# which are the two things a hold must not do — so it is written out
+		# rather than called. The signal is not optional: [signal attack_ordered]
+		# says it fires when he takes a target on his own, and a held hero doing
+		# exactly that would otherwise be the one acquisition that never
+		# announced itself. Nothing consumes it yet, which is precisely why the
+		# gap would have gone unnoticed until something did.
 		Order.HOLD:
 			if not _is_valid_target(_target):
-				_target = _nearest_enemy_to(global_position, attack_range, true)
+				var found := _nearest_enemy_to(global_position, attack_range, true)
+				if found != null:
+					_target = found
+					attack_ordered.emit(found)
 
 		Order.MOVE:
 			pass
