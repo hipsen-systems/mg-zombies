@@ -92,6 +92,12 @@ thing that knows what a stat name means.
 - **An actor that uses a tree must provide `add_stat(stat, amount)` and
   `scale_stat(stat, factor)`**, and must recompute from authored bases rather
   than accumulating — `apply()` runs on every recompute, not once per purchase.
+  **The fold is idempotent in its values and not in its announcements**, which
+  issue #65 is the first thing to rely on: `scenes/hero/` emits `stats_changed`
+  at the end of it, so running it twice writes the same numbers and says so
+  twice. That is the harmless direction — a listener redraws what it already
+  drew — but an actor that ever hangs something *costly* off the recompute owns
+  that cost, not this folder.
 - **It must check `stats_used()` against the stats it accepts.** Stat names are
   strings; this is what makes a typo a load-time complaint rather than a point
   spent on nothing.
@@ -146,4 +152,4 @@ plain `Resource` scripts. The declared edge on `scenes/hero/` is about the
 `scenes/hero/` is the only consumer today: it owns the ledger, the fold, and the
 key bindings. `tests/smoke_skills.gd` drives the tree through him.
 
-<!-- verified-against: 79c5b4d -->
+<!-- verified-against: f285e52 -->

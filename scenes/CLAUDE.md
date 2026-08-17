@@ -332,6 +332,14 @@ describes. See `scenes/enemies/CLAUDE.md`.
   the way, `HUD.show_death()` / `hide_death()` / `flash_checkpoint()` —
   plus `HUD.show_victory()` when the boss falls. It consumes
   `HUD.restart_requested` in return.
+- **Not every hero signal `scenes/ui/` uses comes through here**, and issue #65
+  added the second one. That folder subscribes directly to whatever unit is
+  *selected* — its `Health.health_changed` and `died` since #36, and its
+  `stats_changed` now — because this script does not know what is selected and
+  a wire through it would need a second record of that. The rule this folder
+  keeps is narrower than it looks: what `main.gd` owns is the wiring of the
+  **hero as the hero**, and a widget reading the unit it is currently drawing is
+  not that.
 - `main.gd` consumes `Hero.died`, `Hero.health.health_changed`,
   `Hero.attack_move_armed_changed` and `Hero.select_clicked`, forwarding each to
   `scenes/ui/`. Since issue #8 it also consumes `Hero.killed` and

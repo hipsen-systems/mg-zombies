@@ -339,7 +339,14 @@ wider than this will not.
   and a victim without the property is worth nothing rather than an error.
 - **Describes itself to the unit info bar** through `unit_info()` and the
   `display_name` export (per-instance like every stat, so the boss-room guard
-  the class docs describe can announce itself without a new scene). The travel
+  the class docs describe can announce itself without a new scene).
+  **It does not emit `stats_changed`**, the optional fourth member issue #65
+  added to that contract, and the absence is a decision rather than an omission:
+  nothing moves a zombie's numbers after it spawns, so there is never a stale row
+  to redraw. The hero has one because a skill point moves his mid-run. Anything
+  here that ever gains a buff, an enrage or a scaling stat owes the signal —
+  without it the panel silently shows the numbers the thing spawned with, which
+  reads as a balance question rather than a UI one. The travel
   speed it reports is `chase_speed`, not `roam_speed`: what a player wants when
   they click a zombie is how fast it closes on them. Selecting a zombie does
   nothing to it — `scenes/ui/` never issues an order. That folder also watches
@@ -365,4 +372,4 @@ wider than this will not.
   the boss has no model of its own at all, so whatever it eventually wears is a
   separate question from what the horde does.
 
-<!-- verified-against: 0bc0fe6 -->
+<!-- verified-against: f285e52 -->
