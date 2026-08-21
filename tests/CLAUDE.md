@@ -307,19 +307,27 @@ It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
 including the XP bar #8 added.
 
 `bench_crowd.gd` adds three things to that list, and they are the only places
-anything here reaches past the public APIs above. It **instances
-`scenes/enemies/zombie.tscn` itself** rather than letting the map decide how many
-enemies exist — the whole file is a sweep over that number, so it cannot come
-from the layout. It **sets that instance's exports** (`attack_damage`, and the
-three radii) before `add_child`, which is authoring a scene instance and not the
-component write the rule below forbids: the enemy is not in the tree yet, every
-one of those is a per-instance export `scenes/enemies/` provides precisely so a
-second enemy needs no second script, and nothing is reached *through* an actor to
-get at a child of it. And it reads `CharacterBody3D.velocity` off the crowd to
-prove it is chasing, which is a public property of the body rather than the
-enemy's private state — deliberately, because asking the state machine what state
-it thinks it is in would assert this file's assumption instead of the world.
-It also uses `LevelMap.bounds()` and `Hero.respawn_at()`, neither of which any
-smoke test needed.
+anything here reaches past the public APIs above.
+
+- It **instances `scenes/enemies/zombie.tscn` itself** rather than letting the
+  map decide how many enemies exist — the whole file is a sweep over that number,
+  so it cannot come from the layout. `LevelMap.bounds()` comes with it, to
+  scatter them over the footprint; that one is new here.
+- It **writes four of the enemy's own exports**, and the rule below is not in
+  play for any of them: every one is a per-instance export `scenes/enemies/`
+  provides precisely so a second enemy needs no second script, all four are on
+  the actor itself, and nothing is reached *through* an actor to get at a child
+  of it — which is the move "must not write to a component" forbids.
+  **The timing differs between them and the difference is deliberate.**
+  `attack_damage` and `display_name` are set before `add_child`, the ordering
+  `scenes/main.gd` uses. The three radii are set later, at commit time, with the
+  enemy already in the tree and ticking: applied at spawn, a 400-unit detection
+  radius would make every scattered enemy with line of sight notice the hero
+  unprompted, and the roaming rows would quietly have been measuring a second,
+  smaller chase.
+- It **reads `CharacterBody3D.velocity`** off the crowd to prove it is chasing.
+  A public property of the body rather than the enemy's private state, and
+  deliberately so: asking the state machine what state it thinks it is in would
+  assert this file's assumption instead of the world.
 
 <!-- verified-against: e9f8a21 -->
