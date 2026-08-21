@@ -258,13 +258,67 @@ checkpoint closer, or raising either radius, breaks it.
 body radius, so only the near arc clears the capsule. It still reads; anything
 wider than this will not.
 
+## What a crowd of these costs (issue #72)
+
+The outdoor direction asks for encounters of 100+, against a folder built and
+tuned at 19. `tests/bench_crowd.gd` measured it rather than arguing about it —
+headless, `--fixed-fps 60`, crowds of 50/400 on top of the level's own 20, in
+three states. Milliseconds per frame, typical of four runs:
+
+| crowd | roaming | chasing a moving hero | in melee contact |
+|-------|---------|-----------------------|------------------|
+| +0 (the level as shipped) | 0.8 | 0.7 | 0.7 |
+| +50 | 2.0 | 2.8 | 2.1 |
+| +100 | 3.4 | 5.0 | 3.5 |
+| +200 | 6.3 | 9.1 | 6.7 |
+| +400 | 12.0 | 18.0 | 15.4 |
+
+**The answer is yes, with room, and the ceiling is around 200 chasing at once.**
+A hundred committed enemies cost 30% of a 16.67 ms frame; two hundred cost 55%;
+four hundred cost 108% and do not fit. Nothing broke at any size — every body
+stayed on the navmesh, none fell through the floor, and the crowd kept its
+members — so the failure mode approaching the ceiling is frame time and not
+correctness. Two caveats travel with every number: **there is no renderer in a
+headless run**, so this is a floor for the real frame and says nothing about
+drawing hundreds of skinned meshes (issue #82); and the enemies are still
+capsules, so nothing here has been paid for yet.
+
+**Cost is linear in the crowd — about 27 µs per roaming enemy per frame and
+43 µs per chasing one** — which is the finding that should shape whatever gets
+built next, because it says the repathing is only part of the problem:
+
+- **Existing and being simulated is ~60% of a chasing enemy's cost.** A
+  `CharacterBody3D` stepping, a state machine ticking and a `NavigationAgent3D`
+  living in the scene cost 27 µs whether or not the enemy is doing anything
+  interesting.
+- **Solving a path to a moving hero is the other ~40%** (16 µs). Real, and the
+  largest single line item, but a perfect flow field costing nothing would cut a
+  400-crowd from 18.0 ms to about 12 — still 72% of the budget. Worth building
+  (issue #80), worth not expecting it to be the whole answer.
+- **The lever the numbers actually favour is not doing the other 60% for enemies
+  nobody can see** (issue #81).
+- **A negative result worth keeping: repathing in `ATTACK` is not worth fixing.**
+  `_think()` falls through to the same `target_position` assignment in `ATTACK`
+  as in `CHASE`, while `_process_attack()` stands still and never reads the
+  path — so every enemy in contact pays for a path it throws away, which looks
+  like free money. It is not: at +100 and +200 the contact column matches the
+  roaming column to within noise, because the wasted path is one hop long. The
+  gap at +400 is 400 bodies overlapping inside a 1.8-unit disc, which is the
+  benchmark's packing and not a property of combat.
+- **The sense-tick stagger below is doing its job.** There is no 5 Hz spike
+  pattern at any crowd size; the 95th-percentile frame stays within about 1.5×
+  the mean throughout.
+
 ## Gotchas
 
 - **Sensing is throttled** to one tick per `SENSE_INTERVAL` (0.2 s), and the
   first tick is randomly offset per zombie in `_ready()`. A shambling zombie
-  does not need 60 Hz reflexes, the cost stays flat as the level fills up, and
-  the offset stops a room full of them moving in lockstep. Anything that needs
-  per-frame precision (the attack cooldown, gravity, movement) is in
+  does not need 60 Hz reflexes, so an enemy's cost is capped per second rather
+  than per frame, and the offset stops a room full of them moving in lockstep —
+  which is what keeps a crowd's cost smooth rather than arriving in 5 Hz spikes.
+  It does **not** make the total flat, as an earlier version of this line could
+  be read to claim: the total is linear in the crowd, measured above. Anything
+  that needs per-frame precision (the attack cooldown, gravity, movement) is in
   `_physics_process`, not `_think()`.
 - **`_ready()` awaits one `physics_frame` before its first path request.**
   `NavigationServer3D` syncs its maps at the end of a physics frame and
