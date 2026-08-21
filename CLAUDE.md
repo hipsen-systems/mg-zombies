@@ -70,12 +70,13 @@ Two developers collaborate via feature branches and pull requests.
 - **Resuming existing work:** switch back to that feature branch; don't merge `main` into it unless the PR is blocked by the "branch up to date" requirement or a conflict.
 - Never commit directly to `main`. All work happens on branches and lands through PRs (branch protection rejects direct pushes anyway).
 - One topic per branch/PR — keep PRs small and reviewable; flag unrelated changes for a separate branch.
-- Every PR is reviewed by the *other* developer's Claude before merging (cross-review). When the user asks you to review their partner's PR, do a genuine critical review: check it against this file's conventions, the game design goals, and the per-folder context docs — don't rubber-stamp.
-- **Solo review, when the other developer is away.** `main` requires zero approving reviews, so the author can merge their own PR. This is deliberate: GitHub blocks authors from approving their own PRs, so an approval gate would deadlock a one-person week. The *review* is not waived, it moves to the author's side:
-  - The `claude-review` workflow runs on every PR and is a required check. Read its comment and address the findings before merging.
-  - Have your own Claude review the diff too, held to the same bar as a cross-review. An author-side reviewer that softens its findings makes the whole gate worthless.
-  - Everything else still applies: one topic per PR, no direct commits to `main`, all checks green, threads resolved. Merging your own PR is the exception — when both developers are around, wait for the cross-review.
-  - Restoring the two-person gate: `gh api --method PATCH repos/hipsen-systems/mg-zombies/branches/main/protection/required_pull_request_reviews -F required_approving_review_count=1`
+- **The merge gate is `claude-review` plus your own judgement — not the other developer** (settled 2026-08-21). An author merges their own PR once the checks are green and the change looks right. Waiting on the other developer's Claude is no longer required for any PR, not just when they are away.
+  - **`claude-review` runs on every PR and is a required check.** Read its comment and address the findings before merging. It is now the gate rather than a second opinion beside one, so passing it while skimming past what it said is the single way to make this rule hollow.
+  - **Review your own diff too, held to the bar you would hold a partner's to.** This is the half with nothing behind it. An author-side reviewer that softens its findings because the author wrote the code makes the whole arrangement worthless — and there is no longer a second pair of eyes downstream to catch that.
+  - **Everything else still applies:** no direct commits to `main`, all checks green, threads resolved, one topic per PR.
+  - **Nothing in GitHub changed with this rule, and that is worth knowing.** `main` has always required zero approving reviews — deliberately, because GitHub blocks authors from approving their own PRs and an approval gate would deadlock a one-person week. So the two-person gate was only ever a convention in this file, which is why removing it is a docs change and not a settings one.
+  - Restoring a two-person gate means changing this bullet back *and* raising the count: `gh api --method PATCH repos/hipsen-systems/mg-zombies/branches/main/protection/required_pull_request_reviews -F required_approving_review_count=1`
+- **Cross-review is still worth having; it is just not a gate.** When the user asks you to review their partner's PR, do a genuine critical review: check it against this file's conventions, the game design goals, and the per-folder context docs — don't rubber-stamp. A review already in flight is worth waiting for; the *absence* of one is not a reason to hold a PR.
 - When creating a PR, write a body that gives the reviewer enough context to review without access to this conversation.
 
 ## Per-folder context docs
@@ -210,7 +211,10 @@ against any checkout.
 Know the limit: these verify that a doc was *edited*, never that it is *true*.
 Nothing mechanical can check the latter. The stamp exists to make the human
 judgement explicit and attributable rather than assumed — treat a stale stamp as
-a real finding in cross-review.
+a real finding in review. It used to say *cross-review*, which is now the wrong
+half of the sentence to lean on: since the merge gate moved off the other
+developer, the review most likely to be the only one a PR gets is the author's
+own.
 ## Knowledge base (Flowdex)
 
 The team keeps a shared, AI-readable wiki in Flowdex, project slug **`mg-zombies`**. It is the long-term memory the folder docs can't hold: architecture decisions and *why* they were made, gotchas, conventions, and the state of the project. Both developers' Claude sessions read and write it.
