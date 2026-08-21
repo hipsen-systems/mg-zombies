@@ -19,6 +19,9 @@ five elements and one of them non-trivial.
 - `unit_selection.tscn` / `unit_selection.gd` (`class_name UnitSelection`) — a
   `Node3D` in `main.tscn` holding the selection ring. Owns *what* is selected;
   the HUD only draws it.
+- `order_marker.tscn` / `order_marker.gd` (`class_name OrderMarker`) — a `Node3D`
+  in `main.tscn`, on the same precedent: the ping that shows where an order
+  landed (issue #67). Green for a move, red for an attack-move. See below.
 - `skill_panel.tscn` / `skill_panel.gd` (`class_name SkillPanel`) — the skill
   tree as something clickable (issue #62), instanced inside `hud.tscn`. See
   below.
@@ -221,6 +224,67 @@ open this panel, so a player who acts on it immediately reads it straight across
 the panel's own title. Found by screenshotting the panel, not by reasoning about
 it.
 
+## The order marker (issue #67)
+
+A right-click used to produce movement and nothing else. In a top-down view with
+the hero often off-centre, that makes a click that was *received* look identical
+to one that was dropped — `scenes/hero/` has a whole rule about never dropping a
+click, written because dropped clicks read as an unresponsive hero, and this is
+the other half of it: an order the player cannot see is the same experience as no
+order at all.
+
+**It is inert, exactly as selection is**, and for the same reason. It reads no
+state, nothing reads it, and it holds no opinion about what the hero is doing —
+it is told where an order went and draws a ring there. That is what lets it hang
+straight off the hero's order signals without becoming a second record of his
+orders. `scenes/main.gd` does not pick the colour either: the hero emits
+`move_ordered` and `attack_move_ordered` separately, so the *only* thing that
+decides which ping is drawn is the order the hero actually issued.
+
+**Green and red collide with `scenes/map/`'s zone markers, which is why the ring
+carries a dark rim.** The start cell is green (0.3, 0.9, 0.4) and the boss cell
+red (0.95, 0.25, 0.2) — the exact constraint that pushed the selection ring to
+cyan and orange.
+
+**This paragraph first said the collision was acceptable, and a screenshot
+disproved it.** The argument was that a ping is transient and animated where the
+selection ring is static, so motion would carry a hue difference that defeats a
+still shape. Then a move ping was captured landing on the green plate and there
+was **nothing there at all**. The reasoning about motion was not wrong; it was
+answering the wrong question, because a marker invisible in the frame the player
+looks at has already failed whatever it does over the next half second.
+
+So the contrast lives in the marker rather than in the palette: `Rim` is a
+slightly larger near-black torus a hair below the coloured ring. It keeps the one
+convention a new player arrives with — green means go, red means fight — and
+costs a second mesh. It also reads better on ordinary floor than the bare ring
+did, which was not the point but is worth knowing before anyone removes it.
+
+**The general lesson is the one #53 recorded and this repeated exactly.** A
+well-argued design decision is still a hypothesis, and the only thing that
+settles a *visual* one is looking at it. This claim survived being written down,
+re-read while writing the neighbouring paragraph, and reviewed by its author —
+and died to the first screenshot.
+
+**Both materials are duplicated in `_ready()`**, for the reason the ring and
+`scenes/enemies/` both record: sub-resources are shared between instances of a
+scene and these are recoloured and faded at runtime.
+
+**Fading needs both albedo alpha and emission energy.** Emission does not read
+alpha, so dropping opacity alone leaves a bright ring glowing on a transparent
+one — which looks like the ping never ends. The rim fades on the same clock and
+scaled by its authored opacity, so the `.tscn` stays the one place that decides
+how dark it is, and the outline never outlives the thing it outlines.
+
+## The hold indicator (issue #67)
+
+`set_holding_position(holding)` is the second element of the
+`set_attack_move_armed` kind, and it needs the treatment more rather than less.
+An armed attack command ends on the next click; a hold lasts until the player
+remembers it, and a held hero is indistinguishable in the world from one who has
+simply finished walking — right up until the player wonders why he is not
+chasing anything.
+
 ## The victory panel (issue #39)
 
 The boss dies, `scenes/main.gd` calls `show_victory()`, and a "VICTORY" heading,
@@ -328,8 +392,17 @@ difference worth stating rather than assuming.
 
 ## Dependencies / signals
 
-- Instanced by `scenes/main.tscn`; `UnitSelection.hero` is wired from there as a
-  `NodePath`, the way the camera's `target` is.
+- Instanced by `scenes/main.tscn` — the `HUD`, `UnitSelection` and, since issue
+  #67, `OrderMarker`. `UnitSelection.hero` is wired from there as a `NodePath`,
+  the way the camera's `target` is; the marker needs no wiring of its own,
+  because it is fed by method call like everything else here.
+- Consumes `Hero.move_ordered` and `Hero.attack_move_ordered` through
+  `scenes/main.gd` as `OrderMarker.show_move()` / `show_attack_move()`, and
+  `Hero.holding_position_changed` as `HUD.set_holding_position()` (issue #67).
+  Those two order signals had been emitted and unconsumed since issue #11; this
+  is their first consumer, and `Hero.attack_ordered` is still waiting for one —
+  a marker that tracks a moving unit is a different feature from a ping on the
+  ground, and #67 deliberately did not build it.
 - Consumes `Hero.select_clicked`, and `Health.health_changed` / `Health.died` on
   whatever is selected — plus `stats_changed` on the same unit since issue #65,
   which is the first signal this folder takes from a *unit* rather than from a
@@ -363,4 +436,4 @@ difference worth stating rather than assuming.
   *before* calling `select_unit(hero)`, because the info bar learns the initial
   selection from that signal and nothing re-sends it.
 
-<!-- verified-against: f72a398 -->
+<!-- verified-against: e9f8a21 -->

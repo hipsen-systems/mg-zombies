@@ -26,17 +26,45 @@ extends CharacterBody3D
 ##   is reading the rest of the screen is not chewed on for free. It also makes
 ##   a separate retaliate-when-hit rule unnecessary: nothing can reach the hero
 ##   from outside [member acquire_radius] anyway.
+## - [b]HOLD does, at a different radius.[/b] It acquires at
+##   [member attack_range] rather than [member acquire_radius], so it takes what
+##   comes to it and never has anything to walk to — which is the whole of the
+##   difference from IDLE.
 ##
 ## [b]This script never names an enemy class.[/b] Targets are found through the
 ## "enemies" group and used through take_damage()/is_dead(), so scenes/hero/
 ## does not depend on scenes/enemies/ — the dependency runs one way, enemies to
 ## hero. A second enemy type needs no change in here.
 
-## Emitted with the clamped destination of a move or attack-move order.
+## Emitted with the clamped destination of a plain move order.
+##
+## [b]Attack-move has its own signal since issue #67[/b], where this one used to
+## carry both. They were one signal while nothing consumed either; the order
+## marker is the first thing to care, and it draws them in different colours,
+## so a listener has to be able to tell them apart. A flag on one signal would
+## have done the same job and read worse at every call site.
 signal move_ordered(world_point: Vector3)
+
+## Emitted with the clamped destination of an attack-move order (issue #67).
+signal attack_move_ordered(world_point: Vector3)
+
+## Emitted when the hero is told to stand his ground, or to stop doing so
+## (issue #67).
+##
+## [b]A mode the player cannot see is a mode they will forget they are in[/b] —
+## the same reason [signal attack_move_armed_changed] exists, and the reason this
+## reports a *state* rather than an event. Holding is not visible in the world:
+## a hero standing his ground and a hero who has finished walking look identical
+## until something wanders into reach.
+signal holding_position_changed(holding: bool)
 
 ## Emitted when the hero is told to attack something — by right-click, by
 ## A+click, or by acquiring a target on his own.
+##
+## [b]All four acquiring paths fire it[/b], including a held hero taking what
+## walks into his reach. Still unconsumed, which is why that last one is worth
+## stating: a gap here would stay invisible until the first listener arrived, and
+## then be a bug in a file nobody had touched.
 signal attack_ordered(target: Node3D)
 
 ## Emitted when a target dies from this hero's damage. The XP hook for issue #8,
@@ -94,6 +122,9 @@ enum Order {
 	ATTACK_TARGET,
 	## Walking somewhere, engaging whatever it meets and then resuming.
 	ATTACK_MOVE,
+	## Standing ground: swings at whatever comes within reach and never moves,
+	## not one step (issue #67).
+	HOLD,
 }
 
 ## Ground is physics layer 1, enemies are layer 4 — see the table in
@@ -565,6 +596,17 @@ func current_order() -> Order:
 	return _order
 
 
+## Whether he is currently standing his ground (issue #67).
+##
+## The same question as [code]current_order() == Order.HOLD[/code], and it exists
+## because `tests/` cannot ask it that way: that folder holds the hero untyped on
+## purpose, so naming the enum would make it fail to parse whenever the global
+## class cache is missing. Reads better than the comparison anyway, which is why
+## it is public rather than a note in the test.
+func is_holding_position() -> bool:
+	return _order == Order.HOLD
+
+
 ## The enemy the hero is currently attacking, or null.
 func current_target() -> Node3D:
 	return _target if _is_valid_target(_target) else null
@@ -608,15 +650,50 @@ func command_attack_move(world_point: Vector3) -> void:
 	_resume_point = reachable
 	_has_resume_point = true
 	_nav_agent.target_position = reachable
-	move_ordered.emit(reachable)
+	attack_move_ordered.emit(reachable)
 
 
-## Drop every order and hold position.
+## Stand ground: swing at whatever comes within [member attack_range] and do not
+## move for it (issue #67).
+##
+## [b]The difference from IDLE is the whole feature, and it is not "does he
+## fight".[/b] Both fight. An idle hero acquires anything within
+## [member acquire_radius] — nine units, four times his reach — and walks to it,
+## which is what makes him wander out of a doorway the player parked him in.
+## Holding acquires at reach and never travels, so the position the player chose
+## is the position he keeps.
+func command_hold_position() -> void:
+	# Already holding: re-pressing the key must not re-announce a state that has
+	# not changed, and there is nothing else to reset — he is standing still with
+	# no destination by definition.
+	if _order == Order.HOLD:
+		return
+	_clear_orders()
+	_order = Order.HOLD
+	# The agent is still holding the path from the last order. Left alone, the
+	# *next* order after this one is judged finished or not against a stale
+	# destination — the same trap respawn_at() documents.
+	_nav_agent.target_position = global_position
+	holding_position_changed.emit(true)
+
+
+## Drop every order and stand there. Bound to `S` since issue #67; it has existed
+## unbound since issue #5 as the public way to cancel an order.
+##
+## Note this leaves him IDLE rather than HOLD, and the two differ: he will still
+## acquire and walk to anything inside [member acquire_radius]. "Stop what you are
+## doing" and "stand exactly here" are separate commands in the scheme this game
+## copies, and collapsing them would leave no way to say the first.
 func command_stop() -> void:
 	_clear_orders()
 
 
 func _clear_orders() -> void:
+	# Before the assignment, so the state it reports is the one being left. This
+	# is the only path out of HOLD: every command routes through here, as do death
+	# and respawn, and nothing else assigns the order away from it — _reassess()
+	# and _finish_engagement() both leave a held hero held.
+	var was_holding := _order == Order.HOLD
 	_order = Order.IDLE
 	_target = null
 	_has_resume_point = false
@@ -624,6 +701,8 @@ func _clear_orders() -> void:
 	# the old one.
 	velocity.x = 0.0
 	velocity.z = 0.0
+	if was_holding:
+		holding_position_changed.emit(false)
 
 
 # --- Input -------------------------------------------------------------------
@@ -638,6 +717,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("cancel_command"):
 		_set_attack_move_armed(false)
+		return
+
+	# Both disarm `A` first, on the rule the right-click handler below already
+	# keeps: any command cancels an armed attack, or the arming survives the
+	# command that was meant to replace it. `S` is the more obvious of the two —
+	# a key that means "cancel what you are doing" leaving a half-issued attack
+	# command loaded would be the plainest possible surprise.
+	if event.is_action_pressed("hold_position"):
+		_set_attack_move_armed(false)
+		command_hold_position()
+		return
+
+	if event.is_action_pressed("stop_command"):
+		_set_attack_move_armed(false)
+		command_stop()
 		return
 
 	# Spending a point is not a command, so it deliberately does not disarm `A`
@@ -724,6 +818,8 @@ func _physics_process(delta: float) -> void:
 			_process_travel(delta)
 		Order.ATTACK_TARGET:
 			_process_attack(delta)
+		Order.HOLD:
+			_process_hold(delta)
 
 
 ## Order bookkeeping and target acquisition. Runs on the retarget tick, not
@@ -749,6 +845,27 @@ func _reassess() -> void:
 			if _horizontal_distance_to(_target.global_position) > attack_range:
 				_nav_agent.target_position = _on_navmesh(_target.global_position)
 
+		# Holding acquires like the two above and at a different radius, which is
+		# the entire behaviour: at reach rather than at [member acquire_radius],
+		# so there is never anything to walk to. It stays in HOLD while it does —
+		# taking a target here by switching to ATTACK_TARGET would hand the hero
+		# straight back to the branch that repaths, and the hold would end the
+		# first time anything strayed near him.
+		#
+		# Everything _engage() does *except* the order change and the repath,
+		# which are the two things a hold must not do — so it is written out
+		# rather than called. The signal is not optional: [signal attack_ordered]
+		# says it fires when he takes a target on his own, and a held hero doing
+		# exactly that would otherwise be the one acquisition that never
+		# announced itself. Nothing consumes it yet, which is precisely why the
+		# gap would have gone unnoticed until something did.
+		Order.HOLD:
+			if not _is_valid_target(_target):
+				var found := _nearest_enemy_to(global_position, attack_range, true)
+				if found != null:
+					_target = found
+					attack_ordered.emit(found)
+
 		Order.MOVE:
 			pass
 
@@ -764,6 +881,12 @@ func _engage(target: Node3D) -> void:
 ## The target is gone: resume the attack-move that was interrupted, or stand down.
 func _finish_engagement() -> void:
 	_target = null
+	# A hold outlives whatever walked into it. Without this the order would end on
+	# the first kill — the hero would stand his ground right up until the moment
+	# it mattered and then quietly stop, which is worse than not having the
+	# command, because the player has already stopped watching him.
+	if _order == Order.HOLD:
+		return
 	if _has_resume_point:
 		_order = Order.ATTACK_MOVE
 		_nav_agent.target_position = _resume_point
@@ -807,6 +930,38 @@ func _process_attack(delta: float) -> void:
 
 	_halt()
 	_face(to_target, delta)
+	if _attack_timer > 0.0:
+		return
+	_attack_timer = attack_cooldown
+	_swing(_target)
+
+
+## Standing ground (issue #67): swing at what is in reach, and do not move for
+## anything.
+##
+## Deliberately a near-copy of the tail of [method _process_attack] rather than a
+## share of it. What that method mostly *is* is the decision about closing on a
+## target — repath, or stand and face because the path is finished — and this
+## order exists precisely to have no such decision. Factoring the two together
+## would mean a helper whose first act is to branch on which caller it has.
+func _process_hold(delta: float) -> void:
+	_halt()
+	if not _is_valid_target(_target):
+		# _reassess() picks one up on the next tick if anything is in reach; until
+		# then, stand. Nothing here reaches for a target of its own, because that
+		# would run the group scan at 60 Hz rather than at RETARGET_INTERVAL.
+		return
+	var to_target := _target.global_position - global_position
+	to_target.y = 0.0
+	_face(to_target, delta)
+	# Range is re-tested every frame even though _reassess() only ever hands this
+	# order a target that was in reach when it looked, because the *target* moves:
+	# a zombie that walks back out between reassessments would otherwise be hit
+	# from beyond reach for up to a tick. Through the shared helper, so this is
+	# the same measurement _process_attack makes rather than a third one that
+	# happens to agree.
+	if _horizontal_distance_to(_target.global_position) > attack_range:
+		return
 	if _attack_timer > 0.0:
 		return
 	_attack_timer = attack_cooldown

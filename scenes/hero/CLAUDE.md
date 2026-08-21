@@ -36,6 +36,8 @@ the control model the whole game is styled after. Actions are in
 | `A` then left-click (`attack_move` + `select_command`) | attack it | attack-move there |
 | Left-click alone (`select_command`) | select it | select the hero back |
 | `A` again, or `Escape` (`cancel_command`) | disarms `A` | disarms `A` |
+| `H` (`hold_position`) | stand ground — see below | stand ground — see below |
+| `S` (`stop_command`) | drop the current order | drop the current order |
 | `1` / `2` (`skill_strength` / `skill_health`) | buys a rank — see Skills | buys a rank — see Skills |
 
 **`1` and `2` are the only inputs here that are not commands**, which is why the
@@ -62,17 +64,31 @@ first.
 
 Public order API — future AI, skills and tests should call these rather than
 poking the `NavigationAgent3D`: `command_move_to(point)`,
-`command_attack(target)`, `command_attack_move(point)`, `command_stop()`.
+`command_attack(target)`, `command_attack_move(point)`,
+`command_hold_position()`, `command_stop()`.
 Each cancels the previous order outright: the agent repaths and horizontal
 velocity is zeroed so the hero can't coast a frame along the abandoned heading.
+
+**`H` and `S` are not the same command, and collapsing them would lose the one
+that is harder to express.** `S` drops the current order and leaves him `IDLE`,
+which still acquires anything within `acquire_radius` and walks to it. `H` roots
+him: he swings at what comes within `attack_range` and does not travel for
+anything. "Stop doing that" and "stand exactly here" are separate instructions in
+the scheme this game copies, and only the second lets a player park him in a
+doorway and read the rest of the screen.
+
+Both disarm `A` first, on the rule the right-click handler already keeps — any
+command cancels an armed attack, or the arming outlives the command meant to
+replace it. `S` most obviously: a key meaning "cancel what you are doing" that
+left a half-issued attack command loaded would be the plainest possible surprise.
 
 `respawn_at(point)` is the one method outside that set that moves him, and it is
 not an order — see below.
 
 ## Which orders acquire targets
 
-Four orders (`IDLE`, `MOVE`, `ATTACK_TARGET`, `ATTACK_MOVE`), and the only
-interesting question is which of them pick up a target on their own. Every
+Five orders (`IDLE`, `MOVE`, `ATTACK_TARGET`, `ATTACK_MOVE`, `HOLD`), and the
+only interesting question is which of them pick up a target on their own. Every
 answer is a decision:
 
 - **`MOVE` does not.** A move order runs the gauntlet untouched. This is what
@@ -85,6 +101,31 @@ answer is a decision:
 - **`IDLE` does.** A hero standing still defends himself. This also removes the
   need for a separate retaliate-when-hit rule — nothing can reach him from
   outside `acquire_radius` in the first place.
+- **`HOLD` does, at a different radius, and that is the whole order** (issue
+  #67). It acquires at `attack_range` (2.2) rather than at `acquire_radius` (9),
+  so there is never anything to walk to, and it **stays in `HOLD` while
+  fighting** rather than switching to `ATTACK_TARGET` — taking a target the
+  ordinary way would hand him straight back to the branch that repaths, and the
+  hold would end the first time anything strayed near him.
+
+  It still emits `attack_ordered`, so **all four acquiring paths announce
+  themselves**. Cross-review of PR #70 caught that the first version did not:
+  the branch is `_engage()` minus the order change and the repath, and the
+  signal had been dropped along with them. Invisible today because nothing
+  consumes it — and that is the reason it was worth fixing rather than noting,
+  since the first listener would have found one acquisition silently missing in
+  a file nobody had touched.
+
+  **A hold outlives the thing that walks into it.** `_finish_engagement()`
+  returns early for `HOLD`, and without that line the order ends on the first
+  kill: he stands his ground right up until the moment it matters and then
+  quietly stops, which is worse than not having the command, because by then the
+  player has stopped watching him. `tests/smoke_orders.gd` asserts it, and was
+  run against the guard removed to prove it catches that exact failure.
+
+  The only way out of `HOLD` is `_clear_orders()`, which every other command,
+  death and respawn all route through — nothing else assigns the order away from
+  it. That is what makes `holding_position_changed` safe to emit from one place.
 
 **Automatic acquisition requires line of sight; clicking does not.** Both are
 deliberate and they are not the same question. A raycast against walls stops the
@@ -405,11 +446,24 @@ to touch. `tests/smoke_progression.gd` asserts it directly.
   the first bake resolve to the hero's own position.
 - Emits `select_clicked(screen_point)` for a bare left-click, consumed by
   `scenes/ui/` (via `scenes/main.gd`) as a selection.
-- Emits `move_ordered(world_point)` (move *and* attack-move) and
-  `attack_ordered(target)` — still unconsumed. This doc used to say they existed
-  for the selection UI in issue #36; that turned out to be wrong, because
-  selection is deliberately inert and reads nothing about what the hero is
-  doing. They now have no planned consumer.
+- Emits `move_ordered(world_point)` and, since issue #67,
+  `attack_move_ordered(world_point)` — **one signal each, where `move_ordered`
+  used to carry both**. They were one while nothing consumed either; the order
+  marker in `scenes/ui/` is the first thing to care, and it draws them in
+  different colours, so a listener has to be able to tell them apart. A flag on
+  one signal would have done the same job and read worse at every call site.
+  Both are consumed by `scenes/main.gd`, which forwards them to that marker.
+  `attack_ordered(target)` is **still unconsumed**: a marker on a moving unit is
+  a different thing from a ping on the ground, and #67 deliberately did not build
+  it. This doc used to say these existed for the selection UI in issue #36; that
+  turned out to be wrong, because selection is deliberately inert and reads
+  nothing about what the hero is doing.
+  Emits `holding_position_changed(holding)` (issue #67), consumed by
+  `scenes/main.gd` and forwarded to the HUD. A *state* rather than an event, and
+  reported for the same reason `attack_move_armed_changed` is: a mode the player
+  cannot see is a mode they forget they are in, and holding is invisible in the
+  world — a hero standing his ground and one who has finished walking look
+  identical until something wanders into reach.
   Emits `killed(victim)`, **consumed by `scenes/main.gd` since issue #8** after
   being emitted and dropped since #11. It fires from the swing that lands the
   killing blow, so attribution is exact rather than "something died" — which is
@@ -441,4 +495,4 @@ to touch. `tests/smoke_progression.gd` asserts it directly.
 - Damages and is damaged by `scenes/enemies/zombie.gd`, which finds him through
   the `hero` group.
 
-<!-- verified-against: f72a398 -->
+<!-- verified-against: e9f8a21 -->

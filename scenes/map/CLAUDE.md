@@ -148,7 +148,16 @@ passing needs either wider geometry or agent avoidance.
 
 What changed is where it applies. **Put a chokepoint where a queue is the
 encounter you want; put a clearing where units should spread out.** A design
-that needs units to pass now has somewhere to do it. The 0.2 of slack is why
+that needs units to pass now has somewhere to do it.
+
+**Issue #67 gave the player a way to use that deliberately**, which is worth
+knowing because it is the first thing to make a chokepoint a *tactic* rather
+than only a shape. `scenes/hero/`'s hold command roots the hero where he stands
+and stops him acquiring anything he would have to walk to, so a one-cell throat
+can now be held against a pack that has to arrive down it in single file. Before
+it, an idle hero picked up whatever came within nine units and left the throat to
+go and meet it — a player could only approximate holding by re-clicking, and lost
+the position the moment they looked away. The 0.2 of slack is why
 avoidance stays a plausible remedy rather than a hopeless one, and why this
 paragraph has to be re-checked if it is ever enabled.
 
@@ -334,4 +343,4 @@ contiguous run of open cells without changing what the player sees.
   `scenes/hero/`, which is why it is in the frontmatter above. `Checkpoint`
   never names `Hero` as a type.
 
-<!-- verified-against: f285e52 -->
+<!-- verified-against: e9f8a21 -->

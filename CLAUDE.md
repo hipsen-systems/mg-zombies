@@ -161,7 +161,12 @@ is worth recording where rather than only in issue #40. That file holds two
 registries this doc explicitly does *not* own, so adding an input action forces
 an edit here to describe something `scenes/CLAUDE.md` is the owner of. PR #62 is
 the second recorded instance: it added `toggle_skills` and had nothing true to
-say here beyond this paragraph. Left as-is deliberately — the check cannot tell
+say here beyond this paragraph. **Issue #67 is the third**, adding
+`hold_position` and `stop_command` — and it settles the shape of the cost, which
+two instances could not: the misfire is **per commit, not per action**, so a
+change adding two actions pays exactly what one adding a single action pays. The
+tax does not scale with the work, which is most of the argument for leaving it.
+Left as-is deliberately — the check cannot tell
 which *section* of `project.godot` moved, and a rule that fires too often is a
 smaller fault than one that lets a renderer or physics change through unread.
 Note what it is not: the rest of the same-change rule, which fires on a folder's

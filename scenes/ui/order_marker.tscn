@@ -1,0 +1,37 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/order_marker.gd" id="1_marker"]
+
+[sub_resource type="TorusMesh" id="TorusMesh_marker"]
+inner_radius = 0.62
+outer_radius = 0.82
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_marker"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.36, 1, 0.42, 1)
+emission_enabled = true
+emission = Color(0.36, 1, 0.42, 1)
+
+[sub_resource type="TorusMesh" id="TorusMesh_rim"]
+inner_radius = 0.5
+outer_radius = 0.96
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rim"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.04, 0.04, 0.06, 0.85)
+
+[node name="OrderMarker" type="Node3D"]
+script = ExtResource("1_marker")
+
+[node name="Rim" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.012, 0)
+cast_shadow = 0
+mesh = SubResource("TorusMesh_rim")
+surface_material_override/0 = SubResource("StandardMaterial3D_rim")
+
+[node name="Ring" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("TorusMesh_marker")
+surface_material_override/0 = SubResource("StandardMaterial3D_marker")
