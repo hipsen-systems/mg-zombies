@@ -27,6 +27,52 @@ placed one cell from a spawn.
 | `smoke_progression.gd` | Kills pay XP, levels pay points, and points pay stats |
 | `smoke_boss.gd` | The run can be finished: a hero who did the level can kill the boss |
 | `smoke_skills.gd` | The skill tree is sound, gates what it says, sells nothing it must not, every node of it is reachable, and a stat that moves says so |
+| `bench_crowd.gd` | **Not a test.** What a crowd of 50–400 enemies costs per physics frame (issue #72) |
+
+## `bench_crowd.gd` is the one file here the runner ignores
+
+It extends `harness.gd` like everything else, and the name is the whole
+difference: `run.sh` globs `smoke_*.gd`, so a `bench_*` file is invisible to CI.
+That is the same naming rule the base class follows, used in the other
+direction.
+
+**Keeping it out of the suite is deliberate.** A wall-clock measurement on a
+shared CI runner is a coin flip, and a required check that fails for reasons the
+PR did not cause is exactly what `RNG_SEED` exists to prevent. What it *does*
+assert — that a 400-strong crowd still paths, stands on the navmesh, keeps its
+members and really is chasing — is machine-independent, so those are `check()`s
+and every timing is a `note()`. Run it by hand when something touches enemy AI,
+navigation, or the physics settings:
+
+```bash
+"$GODOT" --headless --path . --fixed-fps 60 --script res://tests/bench_crowd.gd
+```
+
+~30 s, and it prints a table. The measured ceiling it produced, and what that
+means for the crowd sizes the outdoor direction asks for, is in
+`scenes/enemies/CLAUDE.md` — this folder owns how the number is taken, that one
+owns what the number says.
+
+Three things it had to learn, all of which generalise to any measurement here:
+
+- **The first crowd a process builds is not the price of a crowd.** The original
+  run reported a 50-strong crowd at 4.21 ms and a 100-strong one at 3.09 ms. A
+  crowd cannot get cheaper as it grows, so that was one-off setup — the
+  navigation server meeting agents it had never seen, every code path running
+  once — landing inside the first sample and reading as the marginal cost of an
+  enemy. There is now a discarded warm-up pass before the table starts.
+- **`Performance.TIME_PHYSICS_PROCESS` cannot be used here.** Under
+  `--headless --fixed-fps` it reported 37 ms of physics inside a 0.85 ms frame.
+  Whatever that monitor is timing in this mode, it is not the frame we are in.
+  Wall clock between two `physics_frame` signals is the only number in the file,
+  and it is trustworthy for the reason `--fixed-fps` exists: the loop runs flat
+  out, so real time elapsed *is* compute cost.
+- **A row labelled 200 owes proof that 200 of them were working.** Every way a
+  chase sample can quietly become a smaller one — a leash, a lost hero, a crowd
+  that arrived and stopped — leaves the timing looking perfectly reasonable. The
+  crowd is counted at chase speed while it is timed, and that count is asserted.
+  Same shape as the cycle-check rule below: a measurement that cannot fail is
+  not a measurement.
 
 ## Running them
 
@@ -259,5 +305,21 @@ children — `current`/`max_health` on one, and `level`/`xp`/`skill_points`,
 `xp_to_next()` and the `leveled_up` signal on the other.
 It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
 including the XP bar #8 added.
+
+`bench_crowd.gd` adds three things to that list, and they are the only places
+anything here reaches past the public APIs above. It **instances
+`scenes/enemies/zombie.tscn` itself** rather than letting the map decide how many
+enemies exist — the whole file is a sweep over that number, so it cannot come
+from the layout. It **sets that instance's exports** (`attack_damage`, and the
+three radii) before `add_child`, which is authoring a scene instance and not the
+component write the rule below forbids: the enemy is not in the tree yet, every
+one of those is a per-instance export `scenes/enemies/` provides precisely so a
+second enemy needs no second script, and nothing is reached *through* an actor to
+get at a child of it. And it reads `CharacterBody3D.velocity` off the crowd to
+prove it is chasing, which is a public property of the body rather than the
+enemy's private state — deliberately, because asking the state machine what state
+it thinks it is in would assert this file's assumption instead of the world.
+It also uses `LevelMap.bounds()` and `Hero.respawn_at()`, neither of which any
+smoke test needed.
 
 <!-- verified-against: e9f8a21 -->
