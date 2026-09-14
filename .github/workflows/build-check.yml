@@ -9,6 +9,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      # Before Godot is downloaded, so a PR that would bloat the repository
+      # fails in seconds rather than after a minute of setup. A step of this
+      # job rather than a job of its own for the same reason the smoke tests
+      # are (issue #52): no new status check to require.
+      - name: Check the change does not bloat the repository
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: bash .github/scripts/check-repo-bloat.sh
 
       - name: Set up Godot and export templates
         uses: ./.github/actions/setup-godot
