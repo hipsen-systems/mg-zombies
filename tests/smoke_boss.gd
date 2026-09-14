@@ -63,7 +63,7 @@ func _check() -> void:
 	await step(10)
 
 	# The level's entire yield, and not a point more.
-	var spawns: Array[Dictionary] = level.zombie_spawns()
+	var spawns: Array[Dictionary] = level.actor_spawns()
 	check("the cleared room is the level's whole zombie population",
 		cleared == spawns.size(), "%d cleared, %d spawns" % [cleared, spawns.size()])
 	hero.gain_experience(float(spawns.size()) * XP_PER_ZOMBIE)

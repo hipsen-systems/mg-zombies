@@ -27,8 +27,16 @@ extends Node3D
 ## than guessing the exact tile height.
 const SPAWN_CLEARANCE := 0.3
 
-const ZOMBIE_SCENE := preload("res://scenes/enemies/zombie.tscn")
-const BOSS_SCENE := preload("res://scenes/enemies/boss.tscn")
+## What each `asset` id a map names resolves to (issue #73). A map file says
+## `"zombie"`, never a path — an untrusted map must not be able to name a file,
+## and a scene that moves must not break every map — so something has to own
+## the id-to-scene step, and until the registry (issue #74) exists this table
+## is it. Two entries, deliberately: it is the seam the registry replaces, not a
+## registry of its own.
+const ACTOR_SCENES := {
+	&"zombie": preload("res://scenes/enemies/zombie.tscn"),
+	&"boss": preload("res://scenes/enemies/boss.tscn"),
+}
 const CHECKPOINT_SCENE := preload("res://scenes/map/checkpoint.tscn")
 
 ## How long the death screen sits there before the hero comes back.
@@ -67,6 +75,7 @@ var _run_over := false
 
 
 func _ready() -> void:
+	_check_map_assets()
 	_hero.global_position = _level.start_position() + Vector3(0, SPAWN_CLEARANCE, 0)
 	# Before the snap, not after: the snap decides the frame the player opens on,
 	# and an unbounded one opens on the void past the south edge (issue #43).
@@ -74,7 +83,7 @@ func _ready() -> void:
 	_camera.snap_to_target()
 	_nav_region.bake_navigation_mesh(false)
 	_place_checkpoints()
-	_spawn_zombies(0)
+	_spawn_actors(0)
 	_spawn_boss(0)
 
 	_hero.health.health_changed.connect(_hud.set_hero_health)
@@ -180,38 +189,59 @@ func _on_skill_panel_toggled(open: bool) -> void:
 	get_tree().paused = open
 
 
-## One zombie per `Z` cell from [param from_segment] onward. The map says where
-## an encounter is; deciding what stands there is this scene's job, so the map
-## stays pure geometry and never has to know the enemy scenes exist.
-func _spawn_zombies(from_segment: int) -> void:
-	for spawn in _level.zombie_spawns():
+## Every id the map names has a scene here, or says so now rather than as a
+## missing enemy later (issue #73). The same check an actor makes of a skill
+## tree's stat names, for the same reason: the file cannot know what the ids
+## mean, so the one thing that does has to ask. A miss is an error and not a
+## refusal to start — the level is still walkable, and a test that counts what
+## is standing in it is what turns the error into a red check.
+func _check_map_assets() -> void:
+	if _level.map == null:
+		return
+	for asset in _level.map.assets_used():
+		if not ACTOR_SCENES.has(asset):
+			push_error('Main: %s names an asset this build cannot spawn: "%s"' % [
+				_level.map_path, asset,
+			])
+
+
+## One actor per map entry from [param from_segment] onward. The map says what
+## stands where, by id; resolving the id and instancing the scene is this
+## scene's job, so the map stays data and never has to know the enemy scenes
+## exist.
+func _spawn_actors(from_segment: int) -> void:
+	for spawn in _level.actor_spawns():
 		var segment: int = spawn["segment"]
 		if segment < from_segment:
 			continue
-		var zombie: Zombie = ZOMBIE_SCENE.instantiate()
-		zombie.set_meta(SEGMENT_META, segment)
+		# Already reported by _check_map_assets(); skipping here keeps the rest
+		# of the level standing.
+		if not ACTOR_SCENES.has(spawn["asset"]):
+			continue
+		var actor: Zombie = ACTOR_SCENES[spawn["asset"]].instantiate()
+		actor.set_meta(SEGMENT_META, segment)
 		# Position before add_child: Zombie._ready() captures where it stands as
 		# "home" — the centre of the patch it roams and the anchor of its leash.
 		# Enemies sits at the origin, so local and global agree here.
-		zombie.position = spawn["position"] + Vector3(0, SPAWN_CLEARANCE, 0)
-		_enemies.add_child(zombie)
+		actor.position = spawn["position"] + Vector3(0, SPAWN_CLEARANCE, 0)
+		_enemies.add_child(actor)
 
 
-## The boss, on the `B` cell the map already marked (issue #39).
+## The boss, on the boss cell the map already marked (issue #39).
 ##
-## Separate from [method _spawn_zombies] because the boss is one authored
-## instance rather than an entry in the map's spawn list — but it is filed under
+## Separate from [method _spawn_actors] because the boss is one authored
+## marker rather than an entry in the map's actor list — but it is filed under
 ## a segment by the same rule and stored in the same place, so the respawn path
 ## clears it and puts it back without knowing it is special. That was the thing
 ## worth checking about a boss and checkpoints, and it is why this takes a
 ## [param from_segment] it will almost always pass.
 func _spawn_boss(from_segment: int) -> void:
 	var segment := _level.boss_segment()
-	if segment < from_segment:
+	if segment < from_segment or not ACTOR_SCENES.has(_level.boss_asset()):
 		return
-	var boss: Zombie = BOSS_SCENE.instantiate()
+	var boss: Zombie = ACTOR_SCENES[_level.boss_asset()].instantiate()
 	boss.set_meta(SEGMENT_META, segment)
-	# Position before add_child, for the reason _spawn_zombies() gives: _ready()
+	# Position before add_child, for the reason _spawn_actors() gives: _ready()
 	# captures where it stands as home, and for a guard that is its post.
 	boss.position = _level.boss_position() + Vector3(0, SPAWN_CLEARANCE, 0)
 	# The only `died` in the level anyone listens to. Every other one is dropped,
@@ -329,7 +359,7 @@ func _respawn() -> void:
 	# left mid-chase would otherwise stay standing wherever it ran the hero down,
 	# alongside a fresh copy of every one that died.
 	_clear_from_segment(_armed_checkpoint)
-	_spawn_zombies(_armed_checkpoint)
+	_spawn_actors(_armed_checkpoint)
 	# The boss is restored on the same terms as the trash around it, which is
 	# what makes dying to it a retry rather than the end of the run.
 	_spawn_boss(_armed_checkpoint)

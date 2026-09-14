@@ -15,18 +15,33 @@ Top-level game scenes and their scripts.
   real map, and issue #37 replaced that maze with an open single-path level.
 - `main.gd` — attached to the root. Owns the startup order, which is
   load-bearing:
-  1. the map builds itself in its own `_ready()` (Godot readies children
-     first);
-  2. this script places the hero on the map's start cell, hands the camera the
-     map's bounds, and snaps it — in that order, because the snap is the frame
-     the player opens on and an unbounded one opens on void (issue #43);
+  1. the map reads, checks and builds its file in its own `_ready()` (Godot
+     readies children first) — see `scenes/map/` for what a map that fails
+     its checks leaves behind, which is nothing;
+  2. this script checks every `asset` id the map names against the table
+     below, errors for any it cannot spawn, places the hero on the map's start
+     cell, hands the camera the map's bounds, and snaps it — in that order,
+     because the snap is the frame the player opens on and an unbounded one
+     opens on void (issue #43);
   3. it bakes the navmesh over the geometry that now exists — synchronous
      (`bake_navigation_mesh(false)`) because the web export has threads
      disabled, so don't switch it to on-thread baking. On the open level this
      costs ~55 ms at startup, up from ~12 ms on the maze;
-  4. **then** it lays the checkpoint pads, spawns one zombie per `Z` cell of
-     the map, and puts the boss on the `B` cell. Enemies path on the navmesh, so
-     they must not exist before the bake.
+  4. **then** it lays the checkpoint pads, spawns one actor per entry of the
+     map's actor list, and puts the boss on the boss cell. Enemies path on the
+     navmesh, so they must not exist before the bake.
+- **The map's `asset` ids resolve here, and nowhere else** (issue #73). A map
+  file says `"zombie"` and never a path — an untrusted map must not be able to
+  name a file, and a scene that moves must not break every map — so something
+  has to own the id-to-scene step. Until the registry (issue #74) exists it is
+  `ACTOR_SCENES`, a two-entry table in `main.gd`, deliberately not a registry
+  of its own: it is the seam the registry replaces. `_check_map_assets()` runs
+  the map's `assets_used()` against it at startup and pushes an error per id it
+  cannot spawn — the same check the hero makes of a skill tree's stat names,
+  for the same reason: the file cannot know what its ids mean, so the one
+  thing that does has to ask. A miss is an error rather than a refusal to
+  start, and `tests/smoke_startup.gd` counting what is standing is what turns
+  it into a red check.
 - **Enemy spawning** sets `position` *before* `add_child`, because
   `Zombie._ready()` captures `global_position` as the home its roam area and
   leash are measured from. `Enemies` sits at the origin so local and global
@@ -98,8 +113,8 @@ owns what a kill is worth beside it. The screen itself belongs to `scenes/ui/`;
 what winning *means* belongs here.
 
 - **The boss is spawned like a zombie and restored like one.** It comes from
-  `LevelMap.boss_position()` / `boss_segment()` rather than the spawn list,
-  because it is one authored instance — but it is parented under `Enemies` with
+  `LevelMap.boss_position()` / `boss_segment()` / `boss_asset()` rather than
+  the actor list, because it is one authored marker — but it is parented under `Enemies` with
   the same segment metadata, so `_clear_from_segment()` sweeps it up and
   `_spawn_boss()` puts it back on exactly the terms the zombies around it get.
   That is what makes dying to the boss a retry: without it a respawn at the gate
@@ -306,8 +321,11 @@ describes. See `scenes/enemies/CLAUDE.md`.
 
 - Instances `scenes/map/level_map.tscn`, `scenes/hero/hero.tscn`,
   `scenes/ui/hud.tscn` and `scenes/ui/unit_selection.tscn` from the .tscn, and
-  `scenes/enemies/zombie.tscn`, `scenes/enemies/boss.tscn` and
-  `scenes/map/checkpoint.tscn` at runtime. Two exports are wired here as
+  `scenes/enemies/zombie.tscn`, `scenes/enemies/boss.tscn` (through
+  `ACTOR_SCENES`, keyed by the ids maps use) and `scenes/map/checkpoint.tscn`
+  at runtime. Reads `LevelMap.map`, `start_position()`, `bounds()`,
+  `checkpoints()`, `actor_spawns()` and the `boss_position()` /
+  `boss_segment()` / `boss_asset()` triple. Two exports are wired here as
   `NodePath`s and both point at the hero: the camera's `target` and
   `UnitSelection.hero`.
 - **Input actions** are defined in `project.godot`. What each *means* belongs to
