@@ -47,6 +47,7 @@ was a gap in this sentence.
 | [`scenes/skills/`](scenes/skills/CLAUDE.md) | The skill tree's data model, and the tree the hero ships with |
 | [`scenes/map/`](scenes/map/CLAUDE.md) | The level map and its generation |
 | [`scenes/ui/`](scenes/ui/CLAUDE.md) | The HUD, the unit info bar, and unit selection |
+| [`maps/`](maps/CLAUDE.md) | The map files the game ships, one JSON file each; the format is `scenes/map/`'s |
 | [`assets/`](assets/CLAUDE.md) | Third-party CC0 art and the licence record |
 | [`tests/`](tests/CLAUDE.md) | Headless smoke tests that drive the real scenes |
 

@@ -13,13 +13,14 @@ extends "res://tests/harness.gd"
 ## the default `cell_height` floated the baked surface half a unit over the floor
 ## and the hero jittered in place, with every static check passing.
 ##
-## [b]It also checks a map rule that nothing else can.[/b] `scenes/map/` requires
-## that nothing a respawn restores stands within 4 cells of the cell it lands the
-## hero on, and `scenes/hero/` leans on that number: it is the only reason he
-## cannot be swung at on the frame he comes back. The map's own build-time
-## warning reads the spawn list, so it covers `Z` cells and cannot cover the boss
-## — which is exactly the placement that would be moved by someone tuning the
-## last fight.
+## [b]It also checks a map rule on the assembled scene.[/b] `scenes/map/`
+## requires that nothing a respawn restores stands within 4 cells of the cell it
+## lands the hero on, and `scenes/hero/` leans on that number: it is the only
+## reason he cannot be swung at on the frame he comes back. Since issue #73 the
+## map validator refuses a file that breaks it, boss included, before anything
+## is built — this is deliberately the second layer: the validator asserts what
+## an author wrote, this asserts what the player gets, and only this would
+## catch a spawner that reads the data wrong.
 ##
 ## [b]Restored is the word this file had right and the docs had wrong[/b] (issue
 ## #54). The check below was always per-checkpoint over segment >= that
@@ -67,12 +68,13 @@ func _check() -> void:
 		on_mesh.distance_to(hero.global_position) <= NAVMESH_TOLERANCE,
 		"%.2f units from the nearest navmesh point" % on_mesh.distance_to(hero.global_position))
 
-	var spawns: Array[Dictionary] = level.zombie_spawns()
+	var spawns: Array[Dictionary] = level.actor_spawns()
 	var checkpoints: Array[PackedVector3Array] = level.checkpoints()
-	note("%d zombie spawns, %d checkpoints (start included), boss in segment %d"
+	note("%d actor spawns, %d checkpoints (start included), boss in segment %d"
 		% [spawns.size(), checkpoints.size(), level.boss_segment()])
-	# One zombie per `Z`, plus the boss: main.gd populates the map from the
-	# marks, so a mismatch means a spawn was dropped rather than a map edited.
+	# One actor per map entry, plus the boss: main.gd populates the level from
+	# the map's actor list, so a mismatch means a spawn was dropped — or an asset
+	# id nothing could resolve — rather than a map edited.
 	check("every spawn marker and the boss are standing in the level",
 		living_enemies().size() == spawns.size() + 1,
 		"%d alive, %d expected" % [living_enemies().size(), spawns.size() + 1])
@@ -83,9 +85,9 @@ func _check() -> void:
 	# that checkpoint), which is the form the rule is argued from: those are the
 	# enemies that arrive back at their spawns together with the hero.
 	#
-	# The boss is included, and it is the reason to do this here at all. The
-	# map's build-time warning reads the spawn list, so `B` is the one enemy
-	# placement on the level bound by this rule with nothing checking it.
+	# The boss is included: it was the reason to do this here at all while the
+	# map's only check read the spawn list, and it stays included because the
+	# validator and this test must agree on what "every placement" means.
 	var closest := INF
 	var offender := ""
 	for index in checkpoints.size():

@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/hero, scenes/enemies, scenes/map, scenes/components, scenes/skills]
+depends-on: [scenes, scenes/hero, scenes/enemies, scenes/map, scenes/components, scenes/skills, maps]
 ---
 
 # tests/
@@ -27,6 +27,7 @@ placed one cell from a spawn.
 | `smoke_progression.gd` | Kills pay XP, levels pay points, and points pay stats |
 | `smoke_boss.gd` | The run can be finished: a hero who did the level can kill the boss |
 | `smoke_skills.gd` | The skill tree is sound, gates what it says, sells nothing it must not, every node of it is reachable, and a stat that moves says so |
+| `smoke_map.gd` | Every shipped map validates, and the validator refuses a broken map for each rule it enforces |
 | `bench_crowd.gd` | **Not a test.** What a crowd of 50–400 enemies costs per physics frame (issue #72) |
 
 ## `bench_crowd.gd` is the one file here the runner ignores
@@ -166,6 +167,9 @@ reports a cascade and the first line was already the answer.
   missing — the state a fresh checkout is in until `--import` has run, which is
   exactly when someone wants to know whether the project still works. The cost
   is that `var x := hero.something` cannot infer a type; write `var x: Vector3 =`.
+  `smoke_map.gd` needs `MapData`'s static constructors and gets them the same
+  way: `load("res://scenes/map/map_data.gd").from_text(...)` — statics are
+  callable on the loaded script, and the class name is never written.
 
 ## What this folder asks of the rest of the project
 
@@ -182,10 +186,28 @@ PR, so the constraints run outward as well as in:
   **that is the signal, not a false alarm.** Re-measure and decide; do not widen
   the margin to make it quiet.
 - **`smoke_startup.gd` checks the map's respawn-clearance rule**, which
-  `scenes/map/` states and `scenes/hero/` leans on, and covers the boss cell —
-  the one enemy placement bound by that rule that the map's own build-time
-  warning cannot see, because it reads the spawn list. The current map meets it
-  exactly (4.000 cells, twice), so there is no slack to spend.
+  `scenes/map/` states and `scenes/hero/` leans on, on the *assembled scene*.
+  Since issue #73 the map validator refuses a file that breaks the same rule
+  before anything is built, boss included; this test is deliberately kept as
+  the second layer, because the validator asserts what an author wrote and
+  this asserts what the player gets, and only the second catches a spawner
+  that reads the data wrong. The current map meets it exactly (4.000 cells,
+  twice), so there is no slack to spend.
+- **`smoke_map.gd` holds every shipped map to the format, and the format's
+  checker to a broken map per rule** (issue #73). The first half runs in CI over
+  `maps/*.json` and asserts that the glob found something, because a folder that
+  stops matching would otherwise validate nothing and pass. The second half is
+  the file's reason to exist: a clean result on a good map is exactly what a
+  reader that checks nothing reports, so each rule — garbage text, an unknown
+  key, a mark left in the grid, a placement on rock, a walled-off boss, the
+  respawn clearance, the spur rule — is shown a map that breaks it and asserted
+  to be refused *for that reason*, on a small synthetic corridor rather than on
+  the dungeon with a cell moved, so redesigning the level never rewrites these.
+  It ends by asking a second, unparented `LevelMap` to load a file that does not
+  exist and asserting it built nothing: the loader is the gate, and a gate that
+  reads a missing map as an empty level is the trap this repo has hit four
+  times. That one deliberate `ERROR` line in the log is announced by a `note()`
+  immediately before it.
 - **`smoke_progression.gd` guards a rule with no other keeper** (issue #8): that
   reaching a level raises no stat by itself, and every stat gain is bought with
   a point. The root `CLAUDE.md` states it as design intent and `scenes/hero/`
@@ -300,7 +322,10 @@ node's `max_rank` / `requires` / `effects`; `requires` is also *written*, on a
 deep duplicate, to build the broken tree above). Also the
 `is_dead()`/group contract and
 `xp_reward` of `scenes/enemies/`, `LevelMap`'s public geometry API from
-`scenes/map/`, and from `scenes/components/` the `health` and `experience`
+`scenes/map/` — since #73 `load_map()`, `map` and `map_path` too, plus `MapData`'s
+static constructors, `problems`, `is_valid()`, `assets_used()`, `checkpoints`,
+`actors` and `boss_segment`, reached through `load()` of the script rather than
+by class name for the reason the gotcha above gives — the files in `maps/`, and from `scenes/components/` the `health` and `experience`
 children — `current`/`max_health` on one, and `level`/`xp`/`skill_points`,
 `xp_to_next()` and the `leveled_up` signal on the other.
 It reads no `scenes/ui/` node: nothing here asserts anything about the screen,
@@ -330,4 +355,4 @@ anything here reaches past the public APIs above.
   deliberately so: asking the state machine what state it thinks it is in would
   assert this file's assumption instead of the world.
 
-<!-- verified-against: e9f8a21 -->
+<!-- verified-against: 67cb196 -->

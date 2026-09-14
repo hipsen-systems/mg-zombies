@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/hero, scenes/map, scenes/components, scenes/ui, assets]
+depends-on: [scenes, scenes/hero, scenes/map, scenes/components, scenes/ui, assets, maps]
 ---
 
 # scenes/enemies/
@@ -185,7 +185,8 @@ the repo stayed green while that was true. What follows is measured against the
 real scene rather than reasoned about, which is the only reason it is trustworthy
 — the arithmetic done first got the level's XP yield wrong by nearly double.
 
-**What the level actually pays is 3 skill points.** 19 `Z` cells at 10 XP each is
+**What the level actually pays is 3 skill points.** 19 zombie entries in
+`maps/dungeon.json` at 10 XP each is
 190 XP, which is level 4. Every estimate of this fight has to start there and not
 from the 26-point full build, which is level 27 and exists only in
 `tests/smoke_skills.gd`.
@@ -336,8 +337,9 @@ built next, because it says the repathing is only part of the problem:
   whatever the layout said. In a clearing nothing blocks the ray, so every
   zombie within `detection_radius` notices the hero in the same tick and arrives
   together. None of the radii changed — the geometry did. Group size is now a
-  property of where the map author puts a `Z`, which is the tuning knob to reach
-  for first; see `scenes/map/CLAUDE.md`.
+  property of where the map author places each zombie, which is the tuning knob
+  to reach for first; see `scenes/map/CLAUDE.md` for the format and `maps/` for
+  the level.
 - **Wander targets are clamped with `NavigationServer3D.map_get_closest_point`**,
   the same way every `Hero` order clamps its destination — a random point that lands
   inside rock becomes the nearest reachable spot instead of a path request that
@@ -415,13 +417,17 @@ built next, because it says the repathing is only part of the problem:
   order can reach is encounter *design* rather than this folder's code: a hero
   who can be made to stand still is a hero who can hold a chokepoint, and
   `scenes/map/` is where that is written down.
-- Spawned by `scenes/main.gd` from `LevelMap.zombie_spawns()` — the `Z` cells of
-  `scenes/map/level_map.gd`, each carrying the checkpoint segment it belongs to.
-  The spawner sets `position` *before* `add_child`, because `_ready()` captures
-  `global_position` as home. **The boss is placed from `boss_position()` and
-  `boss_segment()` instead**, being one authored instance rather than a list
-  entry — but it lands under the same parent carrying the same segment metadata,
-  which is what lets everything below apply to it unchanged.
+- Spawned by `scenes/main.gd` from `LevelMap.actor_spawns()` — the `actors` of
+  the map file, each an asset id and a cell, carrying the checkpoint segment it
+  belongs to. **The id is resolved in `scenes/main.gd`, not here and not in the
+  map** (issue #73): `"zombie"` names `zombie.tscn` through that script's table
+  until the registry (issue #74) takes the job over, so a new enemy type is an
+  entry there and a scene here. The spawner sets `position` *before*
+  `add_child`, because `_ready()` captures `global_position` as home. **The boss
+  is placed from `boss_position()`, `boss_segment()` and `boss_asset()`
+  instead**, being one authored marker rather than a list entry — but it lands
+  under the same parent carrying the same segment metadata, which is what lets
+  everything below apply to it unchanged.
 - **It also removes them** (issue #38): on respawn, every enemy in the restored
   segment is freed and re-instanced, living, chasing or already a corpse. That
   is why "restored zombies are home in `ROAM`" needs no reset method here — a
@@ -435,4 +441,4 @@ built next, because it says the repathing is only part of the problem:
   the boss has no model of its own at all, so whatever it eventually wears is a
   separate question from what the horde does.
 
-<!-- verified-against: e9f8a21 -->
+<!-- verified-against: 67cb196 -->
