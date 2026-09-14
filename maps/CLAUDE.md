@@ -84,3 +84,5 @@ from #37 until #38 measured it, and a clearance figure three docs cited as a
 contract turned out to be off by a cell (#54). Every number above was
 measured; re-measure rather than adjust when the map changes.
 
+
+<!-- verified-against: 67cb196 -->

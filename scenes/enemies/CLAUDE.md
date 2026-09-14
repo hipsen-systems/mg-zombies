@@ -441,4 +441,4 @@ built next, because it says the repathing is only part of the problem:
   the boss has no model of its own at all, so whatever it eventually wears is a
   separate question from what the horde does.
 
-<!-- verified-against: e9f8a21 -->
+<!-- verified-against: 67cb196 -->

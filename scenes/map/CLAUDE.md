@@ -392,4 +392,4 @@ neighbour visit, not any one operation. Not worth chasing further beside a
   a broken one per rule; `tests/smoke_startup.gd` measures the clearance rule
   on the assembled scene.
 
-<!-- verified-against: e9f8a21 -->
+<!-- verified-against: 67cb196 -->

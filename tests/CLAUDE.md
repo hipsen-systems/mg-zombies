@@ -355,4 +355,4 @@ anything here reaches past the public APIs above.
   deliberately so: asking the state machine what state it thinks it is in would
   assert this file's assumption instead of the world.
 
-<!-- verified-against: e9f8a21 -->
+<!-- verified-against: 67cb196 -->
