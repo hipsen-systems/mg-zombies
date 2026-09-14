@@ -34,13 +34,16 @@ else. Community-authored maps are a stated horizon goal, which makes this cheap
 now and impossible to retrofit later. Resources stay right for content the team
 ships — `scenes/skills/` is the correct shape and should not change.
 
-`maps/dungeon.json`, abridged:
+A complete map, small enough to read whole — it passes every check below,
+including the 4-cell clearance from both the spawn and the checkpoint. The
+dungeon in `maps/` is the same shape at 44 × 38; its numbers are that
+folder's, not this doc's.
 
 ```json
 {
   "format_version": 1,
-  "id": "dungeon",
-  "display_name": "The Dungeon",
+  "id": "corridor",
+  "display_name": "Corridor",
   "terrain": {
     "kind": "grid",
     "rows": [
@@ -50,12 +53,12 @@ ships — `scenes/skills/` is the correct shape and should not change.
     ]
   },
   "markers": [
-    {"kind": "spawn", "cell": [6, 34]},
-    {"kind": "boss", "cell": [30, 6], "asset": "boss"},
-    {"kind": "checkpoint", "cells": [[21, 25], [22, 25], [23, 25]]}
+    {"kind": "spawn", "cell": [1, 1]},
+    {"kind": "boss", "cell": [10, 1], "asset": "boss"},
+    {"kind": "checkpoint", "cells": [[5, 1]]}
   ],
   "actors": [
-    {"asset": "zombie", "cell": [24, 5]}
+    {"asset": "zombie", "cell": [9, 1]}
   ]
 }
 ```
