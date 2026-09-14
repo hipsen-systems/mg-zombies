@@ -1,5 +1,5 @@
 ---
-depends-on: [scenes, scenes/hero, scenes/map, scenes/components, scenes/ui, assets]
+depends-on: [scenes, scenes/hero, scenes/map, scenes/components, scenes/ui, assets, maps]
 ---
 
 # scenes/enemies/
